@@ -154,6 +154,29 @@
             </button>
           </div>
         </div>
+        
+        <!-- Botones de carga masiva Excel -->
+        <div class="mt-4 flex items-center justify-end space-x-3">
+          <button
+            @click="abrirModalExcel('modificar')"
+            class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <span class="font-medium">Modificar Precios (Excel)</span>
+          </button>
+          
+          <button
+            @click="abrirModalExcel('eliminar')"
+            class="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg hover:from-red-700 hover:to-pink-700 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            <span class="font-medium">Eliminar Descuentos (Excel)</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -407,6 +430,217 @@
       </div>
     </div>
     </div> <!-- Cierre del contenido principal -->
+
+    <!-- Modal para Carga de Excel -->
+    <Transition name="modal">
+      <div 
+        v-if="modalExcelAbierto" 
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+        @click.self="cerrarModalExcel"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <!-- Header del Modal -->
+          <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center" 
+               :class="modoExcel === 'modificar' ? 'bg-gradient-to-r from-green-50 to-emerald-50' : 'bg-gradient-to-r from-red-50 to-rose-50'">
+            <div>
+              <h3 class="text-xl font-bold" :class="modoExcel === 'modificar' ? 'text-green-800' : 'text-red-800'">
+                {{ modoExcel === 'modificar' ? 'Modificar Precios Especiales' : 'Eliminar Clientes con Descuentos' }}
+              </h3>
+              <p class="text-sm text-gray-600 mt-1">
+                {{ modoExcel === 'modificar' 
+                  ? 'Sube un archivo Excel con las columnas: nrocta, producto_id, precio_especial' 
+                  : 'Sube un archivo Excel con las columnas: nrocta, producto_id' 
+                }}
+              </p>
+            </div>
+            <button 
+              @click="cerrarModalExcel" 
+              class="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Zona de Drag & Drop -->
+          <div class="p-6">
+            <div 
+              @drop.prevent="onDrop"
+              @dragover.prevent
+              @dragenter.prevent="arrastrando = true"
+              @dragleave.prevent="arrastrando = false"
+              class="border-3 border-dashed rounded-xl p-8 text-center transition-all duration-300"
+              :class="arrastrando 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-300 bg-gray-50 hover:bg-gray-100'"
+            >
+              <div class="flex flex-col items-center gap-4">
+                <!-- Ícono de Excel -->
+                <div class="w-20 h-20 rounded-full flex items-center justify-center"
+                     :class="modoExcel === 'modificar' ? 'bg-green-100' : 'bg-red-100'">
+                  <svg class="w-10 h-10" :class="modoExcel === 'modificar' ? 'text-green-600' : 'text-red-600'" 
+                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+
+                <!-- Texto -->
+                <div>
+                  <p class="text-lg font-semibold text-gray-700">
+                    {{ archivoExcel ? archivoExcel.name : 'Arrastra tu archivo Excel aquí' }}
+                  </p>
+                  <p class="text-sm text-gray-500 mt-1">
+                    o haz clic para seleccionar
+                  </p>
+                </div>
+
+                <!-- Input de archivo oculto -->
+                <input 
+                  ref="inputArchivo"
+                  type="file" 
+                  accept=".xlsx,.xls"
+                  @change="onFileSelected"
+                  class="hidden"
+                />
+
+                <!-- Botón de selección -->
+                <button 
+                  v-if="!archivoExcel"
+                  @click="$refs.inputArchivo.click()"
+                  class="px-6 py-2 rounded-lg font-medium transition-all duration-200"
+                  :class="modoExcel === 'modificar' 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+                    : 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700'"
+                >
+                  Seleccionar Archivo
+                </button>
+
+                <!-- Botón para cambiar archivo -->
+                <button 
+                  v-else
+                  @click="$refs.inputArchivo.click()"
+                  class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                >
+                  Cambiar Archivo
+                </button>
+              </div>
+            </div>
+
+            <!-- Vista previa de datos -->
+            <div v-if="datosExcelProcesados.length > 0" class="mt-6">
+              <h4 class="text-lg font-semibold text-gray-800 mb-3">
+                Vista Previa ({{ datosExcelProcesados.length }} registros)
+              </h4>
+              <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nro Cuenta</th>
+                      <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto ID</th>
+                      <th v-if="modoExcel === 'modificar'" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                        Precio Especial
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="(item, index) in datosExcelProcesados.slice(0, 10)" :key="index" class="hover:bg-gray-50">
+                      <td class="px-4 py-2 text-sm text-gray-900">{{ item.nrocta }}</td>
+                      <td class="px-4 py-2 text-sm text-gray-900">{{ item.producto_id }}</td>
+                      <td v-if="modoExcel === 'modificar'" class="px-4 py-2 text-sm text-gray-900">
+                        {{ formatearPrecio(item.precio_especial) }}
+                      </td>
+                    </tr>
+                    <tr v-if="datosExcelProcesados.length > 10">
+                      <td :colspan="modoExcel === 'modificar' ? 3 : 2" class="px-4 py-2 text-sm text-gray-500 text-center italic">
+                        ... y {{ datosExcelProcesados.length - 10 }} registros más
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Mensajes de error -->
+            <div v-if="errorExcel" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p class="text-sm text-red-700">{{ errorExcel }}</p>
+            </div>
+          </div>
+
+          <!-- Footer del Modal -->
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-2xl">
+            <button 
+              @click="cerrarModalExcel"
+              class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Cancelar
+            </button>
+            <button 
+              @click="aplicarOperacionExcel"
+              :disabled="!archivoExcel || datosExcelProcesados.length === 0 || procesandoExcel"
+              class="px-6 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="modoExcel === 'modificar' 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+                : 'bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700'"
+            >
+              <span v-if="procesandoExcel" class="flex items-center gap-2">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Procesando...
+              </span>
+              <span v-else>
+                {{ modoExcel === 'modificar' ? 'Aplicar Cambios' : 'Eliminar Clientes' }}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Modal de Carga (durante procesamiento) -->
+    <Transition name="fade">
+      <div v-if="mostrandoCarga" class="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4 text-center relative overflow-hidden">
+          <!-- Fondo con partículas animadas -->
+          <div class="absolute inset-0 overflow-hidden opacity-20">
+            <div class="absolute w-32 h-32 bg-blue-500 rounded-full blur-3xl animate-pulse" style="top: -20%; left: -10%;"></div>
+            <div class="absolute w-40 h-40 bg-purple-500 rounded-full blur-3xl animate-pulse" style="bottom: -20%; right: -10%; animation-delay: 1s;"></div>
+          </div>
+
+          <!-- Contenido -->
+          <div class="relative z-10">
+            <!-- Spinner Triple -->
+            <div class="relative w-24 h-24 mx-auto mb-6">
+              <div class="absolute inset-0 border-4 border-blue-200 rounded-full animate-spin" style="border-top-color: #3b82f6;"></div>
+              <div class="absolute inset-2 border-4 border-purple-200 rounded-full animate-spin" style="border-top-color: #8b5cf6; animation-direction: reverse; animation-duration: 0.8s;"></div>
+              <div class="absolute inset-4 border-4 border-pink-200 rounded-full animate-spin" style="border-top-color: #ec4899; animation-duration: 0.6s;"></div>
+            </div>
+
+            <!-- Texto -->
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">
+              {{ modoExcel === 'modificar' ? 'Modificando Precios...' : 'Eliminando Clientes...' }}
+            </h3>
+            <p class="text-gray-600 mb-4">
+              {{ modoExcel === 'modificar' 
+                ? `Actualizando ${datosExcelProcesados.length} precios especiales` 
+                : `Eliminando ${datosExcelProcesados.length} registros de clientes` 
+              }}
+            </p>
+
+            <!-- Barra de progreso -->
+            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 animate-pulse"></div>
+            </div>
+
+            <p class="text-sm text-gray-500 mt-4">Por favor, espera...</p>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
   </div> <!-- Cierre del div raíz con ola -->
 </template>
 
@@ -414,6 +648,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { clientesPreciosService } from '../services/clientesPreciosService.js';
 import WaveBackground from '../components/WaveBackground.vue';
+import * as XLSX from 'xlsx';
 
 // Estado reactivo
 const clientes = ref([]);
@@ -425,6 +660,17 @@ const error = ref(null);
 const preciosEditados = ref(new Map());
 const guardandoCambios = ref(false);
 const mensajeGuardado = ref(null);
+
+// Estado para Excel upload
+const modalExcelAbierto = ref(false);
+const modoExcel = ref('modificar'); // 'modificar' o 'eliminar'
+const archivoExcel = ref(null);
+const arrastrando = ref(false);
+const datosExcelProcesados = ref([]);
+const errorExcel = ref(null);
+const procesandoExcel = ref(false);
+const mostrandoCarga = ref(false);
+const inputArchivo = ref(null);
 
 // Filtros
 const filtros = reactive({
@@ -447,6 +693,298 @@ const clientesFormateados = computed(() => {
 const hayCambiosSinGuardar = computed(() => {
   return preciosEditados.value.size > 0;
 });
+
+// Función auxiliar para formatear precio
+const formatearPrecio = (precio) => {
+  if (!precio && precio !== 0) return '-';
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2
+  }).format(precio);
+};
+
+// Métodos para manejo de Excel
+const abrirModalExcel = (modo) => {
+  modoExcel.value = modo;
+  modalExcelAbierto.value = true;
+  archivoExcel.value = null;
+  datosExcelProcesados.value = [];
+  errorExcel.value = null;
+};
+
+const cerrarModalExcel = () => {
+  modalExcelAbierto.value = false;
+  archivoExcel.value = null;
+  datosExcelProcesados.value = [];
+  errorExcel.value = null;
+  arrastrando.value = false;
+};
+
+const onFileSelected = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    procesarArchivoExcel(file);
+  }
+};
+
+const onDrop = (event) => {
+  arrastrando.value = false;
+  const file = event.dataTransfer.files[0];
+  if (file) {
+    procesarArchivoExcel(file);
+  }
+};
+
+const procesarArchivoExcel = (file) => {
+  errorExcel.value = null;
+  
+  // Validar que sea un archivo Excel
+  if (!file.name.match(/\.(xlsx|xls)$/)) {
+    errorExcel.value = 'Por favor selecciona un archivo Excel válido (.xlsx o .xls)';
+    return;
+  }
+
+  archivoExcel.value = file;
+
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Tomar la primera hoja
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convertir a JSON SIN headers (usar array de arrays)
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+        header: 1, // Esto devuelve arrays en lugar de objetos
+        raw: false,
+        defval: null 
+      });
+
+      console.log('Datos Excel parseados (array de arrays):', jsonData);
+
+      // Saltar la primera fila (encabezados) y convertir a objetos con estructura conocida
+      const datosConvertidos = jsonData.slice(1).filter(row => {
+        // Filtrar filas vacías
+        return row && row.length > 0 && (row[0] || row[1] || row[2]);
+      }).map(row => {
+        const obj = {
+          nrocta: row[0],  // Columna A
+          producto_id: row[1], // Columna B
+        };
+        
+        // Solo agregar precio si es modo modificar
+        if (modoExcel.value === 'modificar') {
+          obj.precio = row[2]; // Columna C
+        }
+        
+        return obj;
+      });
+
+      console.log('Datos convertidos:', datosConvertidos);
+
+      if (datosConvertidos.length === 0) {
+        errorExcel.value = 'El archivo Excel está vacío o no tiene datos válidos';
+        return;
+      }
+
+      // Validar y transformar datos según el modo
+      const datosValidados = validarDatosExcel(datosConvertidos);
+      
+      if (datosValidados.length === 0) {
+        errorExcel.value = 'No se encontraron datos válidos en el archivo';
+        return;
+      }
+
+      datosExcelProcesados.value = datosValidados;
+      
+    } catch (err) {
+      console.error('Error al procesar Excel:', err);
+      errorExcel.value = 'Error al leer el archivo Excel: ' + err.message;
+    }
+  };
+
+  reader.onerror = () => {
+    errorExcel.value = 'Error al leer el archivo';
+  };
+
+  reader.readAsArrayBuffer(file);
+};
+
+const validarDatosExcel = (datos) => {
+  const datosValidos = [];
+  const errores = [];
+
+  console.log('Validando datos para modo:', modoExcel.value);
+  console.log('Total de filas a validar:', datos.length);
+
+  datos.forEach((row, index) => {
+    const linea = index + 2; // +2 porque Excel empieza en 1 y hay header
+    
+    console.log(`Validando línea ${linea}:`, row);
+    
+    const nrocta = row.nrocta;
+    const producto_id = row.producto_id;
+    
+    console.log(`Línea ${linea} - nrocta:`, nrocta, ', producto_id:', producto_id);
+    
+    // Validar campos obligatorios
+    if (!nrocta && nrocta !== 0) {
+      errores.push(`Línea ${linea}: Falta 'nrocta' en columna A`);
+      return;
+    }
+
+    if (!producto_id && producto_id !== 0) {
+      errores.push(`Línea ${linea}: Falta 'producto_id' en columna B`);
+      return;
+    }
+
+    const registro = {
+      nrocta: String(nrocta).trim(),
+      producto_id: String(producto_id).trim()
+    };
+
+    // Si es modo modificar, necesitamos el precio
+    if (modoExcel.value === 'modificar') {
+      const precio = row.precio;
+      
+      console.log(`Línea ${linea} - precio:`, precio);
+      
+      if (!precio && precio !== 0) {
+        errores.push(`Línea ${linea}: Falta 'precio' en columna C`);
+        return;
+      }
+
+      // Normalizar precio
+      const precioNormalizado = normalizarPrecio(precio);
+      
+      console.log(`Línea ${linea} - precio normalizado:`, precioNormalizado);
+      
+      if (precioNormalizado === null || isNaN(precioNormalizado)) {
+        errores.push(`Línea ${linea}: Precio inválido '${precio}'`);
+        return;
+      }
+
+      registro.precio_especial = precioNormalizado;
+    }
+
+    console.log(`Línea ${linea} - Registro válido:`, registro);
+    datosValidos.push(registro);
+  });
+
+  // Mostrar errores si los hay
+  console.log('Errores de validación:', errores);
+  console.log('Datos válidos encontrados:', datosValidos.length);
+  
+  if (errores.length > 0) {
+    const mensajeErrores = errores.slice(0, 5).join('\n');
+    const masErrores = errores.length > 5 ? `\n... y ${errores.length - 5} errores más` : '';
+    
+    if (datosValidos.length === 0) {
+      errorExcel.value = 'Errores encontrados:\n' + mensajeErrores + masErrores;
+    } else {
+      // Hay algunos válidos, mostrar advertencia
+      console.warn(`Se encontraron ${errores.length} errores pero ${datosValidos.length} registros válidos`);
+    }
+  }
+
+  return datosValidos;
+};
+
+const normalizarPrecio = (valor) => {
+  if (valor === null || valor === undefined || valor === '') return null;
+  
+  // Si ya es número, devolverlo
+  if (typeof valor === 'number') return valor;
+  
+  // Convertir a string y limpiar
+  let valorStr = String(valor).trim();
+  
+  // Remover símbolos de moneda y espacios
+  valorStr = valorStr.replace(/[$\s]/g, '');
+  
+  // Manejar formatos argentinos (puntos como separadores de miles, coma como decimal)
+  // Ejemplo: "7.900,50" -> "7900.50"
+  if (valorStr.includes(',') && valorStr.includes('.')) {
+    // Tiene ambos: determinar cuál es el decimal (el último)
+    const ultimoPunto = valorStr.lastIndexOf('.');
+    const ultimaComa = valorStr.lastIndexOf(',');
+    
+    if (ultimaComa > ultimoPunto) {
+      // La coma es el decimal: "7.900,50"
+      valorStr = valorStr.replace(/\./g, '').replace(',', '.');
+    } else {
+      // El punto es el decimal: "7,900.50"
+      valorStr = valorStr.replace(/,/g, '');
+    }
+  } else if (valorStr.includes(',')) {
+    // Solo tiene coma: puede ser decimal o separador de miles
+    const partes = valorStr.split(',');
+    if (partes[partes.length - 1].length <= 2) {
+      // La coma es decimal: "7900,50"
+      valorStr = valorStr.replace(',', '.');
+    } else {
+      // La coma es separador de miles: "7,900"
+      valorStr = valorStr.replace(/,/g, '');
+    }
+  } else if (valorStr.includes('.')) {
+    // Solo tiene punto: puede ser decimal o separador de miles
+    const partes = valorStr.split('.');
+    if (partes[partes.length - 1].length <= 2 && partes.length === 2) {
+      // El punto es decimal: "7900.50"
+      // Ya está en formato correcto
+    } else {
+      // El punto es separador de miles: "7.900"
+      valorStr = valorStr.replace(/\./g, '');
+    }
+  }
+  
+  const numero = parseFloat(valorStr);
+  return isNaN(numero) ? null : numero;
+};
+
+const aplicarOperacionExcel = async () => {
+  if (datosExcelProcesados.value.length === 0) return;
+
+  // Confirmación
+  const accion = modoExcel.value === 'modificar' ? 'modificar' : 'eliminar';
+  const cantidad = datosExcelProcesados.value.length;
+  const mensaje = modoExcel.value === 'modificar'
+    ? `¿Está seguro que desea modificar ${cantidad} precios especiales?`
+    : `¿Está seguro que desea eliminar ${cantidad} registros de clientes con descuentos? Esta acción no se puede deshacer.`;
+
+  if (!confirm(mensaje)) return;
+
+  procesandoExcel.value = true;
+  mostrandoCarga.value = true;
+  errorExcel.value = null;
+
+  try {
+    if (modoExcel.value === 'modificar') {
+      await clientesPreciosService.setPreciosEspecialesCliente(datosExcelProcesados.value);
+      alert(`✓ ${cantidad} precios especiales actualizados correctamente`);
+    } else {
+      await clientesPreciosService.deletePreciosEspecialesCliente(datosExcelProcesados.value);
+      alert(`✓ ${cantidad} registros eliminados correctamente`);
+    }
+
+    // Cerrar modal y recargar datos
+    cerrarModalExcel();
+    await cargarClientes({ page: paginacion.value?.current_page || 1 });
+
+  } catch (err) {
+    console.error('Error en operación Excel:', err);
+    errorExcel.value = err.message || 'Error al procesar la operación';
+    alert('❌ Error: ' + errorExcel.value);
+  } finally {
+    procesandoExcel.value = false;
+    mostrandoCarga.value = false;
+  }
+};
 
 // Métodos de edición
 const obtenerPrecioEspecial = (nrocta, producto_id) => {
@@ -539,8 +1077,10 @@ const cargarClientes = async (params = {}) => {
       ...params
     });
     
-    console.log('Datos crudos de clientes (primer elemento):', response.data[0]);
-    console.log('Todas las claves del primer cliente:', Object.keys(response.data[0]));
+    if (response.data && response.data.length > 0) {
+      console.log('Datos crudos de clientes (primer elemento):', response.data[0]);
+      console.log('Todas las claves del primer cliente:', Object.keys(response.data[0]));
+    }
     
     clientes.value = response.data;
     paginacion.value = response;
@@ -612,5 +1152,32 @@ onMounted(() => {
 /* Gradientes personalizados */
 .bg-gradient-to-br {
   background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
+}
+
+/* Transiciones del modal */
+.modal-enter-active, .modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-active > div, .modal-leave-active > div {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal-enter-from, .modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from > div, .modal-leave-to > div {
+  transform: scale(0.95) translateY(-20px);
+  opacity: 0;
+}
+
+/* Transición del loading */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>

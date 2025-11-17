@@ -190,6 +190,33 @@ export const clientesPreciosService = {
       
       throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
     }
+  },
+
+  /**
+   * Elimina precios especiales para clientes
+   * @param {Array} registros - Array de objetos con {nrocta, producto_id}
+   * @returns {Promise} Respuesta de la API
+   */
+  async deletePreciosEspecialesCliente(registros) {
+    try {
+      const response = await api.delete(ENDPOINTS.CAMBIO_PRECIOS.DELETE_PRECIOS_ESPECIALES_CLIENTE, {
+        data: {
+          data: registros
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al eliminar precios especiales:', error);
+      
+      // Extraer mensaje de error del servidor si existe
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || 'Error al eliminar precios especiales';
+      
+      const errorDetails = error.response?.data?.details || '';
+      
+      throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
+    }
   }
 };
 

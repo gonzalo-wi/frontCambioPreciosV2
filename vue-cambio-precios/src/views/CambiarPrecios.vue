@@ -322,6 +322,12 @@
             </div>
 
             <div class="mt-8 flex justify-end space-x-4">
+              <button
+                v-if="datosArchivo && datosArchivo.sheets && conteoCambiosValidos > 0"
+                type="button"
+                @click="limpiarEspaciosDatos"
+                class="px-4 py-2 border rounded bg-white hover:bg-gray-100 text-sm font-medium"
+              >Limpiar espacios</button>
               <button 
                 v-if="datosArchivo && datosArchivo.sheets"
                 @click="aplicarCambios"
@@ -561,6 +567,85 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de carga mientras se aplican cambios -->
+    <div v-if="aplicando" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+      <!-- Fondo con blur -->
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-indigo-900/40 to-purple-900/40 backdrop-blur-md"></div>
+      
+      <!-- Partículas flotantes de fondo -->
+      <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+      </div>
+      
+      <!-- Contenedor principal -->
+      <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-10 max-w-lg w-full transform scale-100 animate-scale-in border border-white/20">
+        <!-- Decoración superior -->
+        <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-t-3xl"></div>
+        
+        <div class="flex flex-col items-center">
+          <!-- Spinner con efecto 3D -->
+          <div class="relative w-32 h-32 mb-8">
+            <!-- Círculos de fondo -->
+            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 opacity-50 blur-sm"></div>
+            
+            <!-- Anillo exterior giratorio -->
+            <div class="absolute inset-0 border-[6px] border-transparent border-t-blue-500 border-r-indigo-500 rounded-full animate-spin-slow"></div>
+            
+            <!-- Anillo medio giratorio inverso -->
+            <div class="absolute inset-3 border-[5px] border-transparent border-b-purple-500 border-l-pink-500 rounded-full animate-spin-reverse"></div>
+            
+            <!-- Anillo interno pulsante -->
+            <div class="absolute inset-6 border-[4px] border-blue-300/50 rounded-full animate-pulse-ring"></div>
+            
+            <!-- Ícono central con brillo -->
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div class="relative">
+                <div class="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full blur-lg opacity-60 animate-pulse"></div>
+                <div class="relative w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                  <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Título con gradiente -->
+          <h3 class="text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3 text-center">
+            Aplicando cambios de precios
+          </h3>
+          
+          <!-- Contador destacado -->
+          <div class="mb-4 px-6 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200/50">
+            <p class="text-gray-700 text-center flex items-center justify-center space-x-2">
+              <span class="text-sm font-medium">Actualizando</span>
+              <span class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{{ conteoCambiosValidos }}</span>
+              <span class="text-sm font-medium">precios</span>
+            </p>
+          </div>
+          
+          <!-- Mensaje informativo -->
+          <p class="text-gray-600 text-center mb-6 text-sm leading-relaxed max-w-sm">
+            Por favor, no cierres esta ventana. <br>
+            <span class="text-gray-500">Este proceso puede tardar unos momentos...</span>
+          </p>
+          
+          <!-- Barra de progreso mejorada -->
+          <div class="w-full bg-gray-200/80 rounded-full h-3 overflow-hidden shadow-inner">
+            <div class="h-full bg-gradient-to-r from-blue-500 via-indigo-500 via-purple-500 to-pink-500 rounded-full animate-progress-smooth shadow-lg"></div>
+          </div>
+          
+          <!-- Indicador de puntos animados -->
+          <div class="flex items-center space-x-2 mt-6">
+            <div class="w-2 h-2 bg-blue-500 rounded-full animate-bounce-dot"></div>
+            <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce-dot" style="animation-delay: 0.2s"></div>
+            <div class="w-2 h-2 bg-purple-500 rounded-full animate-bounce-dot" style="animation-delay: 0.4s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -713,7 +798,7 @@ const construirPayloadCambioMasivo = () => {
   for (const nombre in sheets) {
     const filas = Array.isArray(sheets[nombre]?.data) ? sheets[nombre].data : [];
     for (const row of filas) {
-      const listaId = row.idLista || row.idlista || row.lista_id || row['ID Lista'] || row.Lista || row['Lista'];
+      const listaId = row.idLista || row.IdLista || row.idlista || row.lista_id || row['ID Lista'] || row.Lista || row['Lista'];
       const productoId = row.codProducto || row.producto_id || row.Cod || row.Codigo || row['Código'] || row.codproducto;
       const precioNuevo = cambiarListaService._normalizarNumero(row.redondeo || row.Redondeo || row['Precio Nuevo']);
       if (!listaId || !productoId) continue;
@@ -732,6 +817,16 @@ const aplicarCambios = async () => {
     error.value = 'No hay precios válidos para enviar. Verifica la columna de precio nuevo (Redondeo).';
     return;
   }
+  // Validaciones adicionales: asegurar que todos los precios son números positivos
+  const invalido = precios.find(p => typeof p.precio !== 'number' || isNaN(p.precio) || p.precio <= 0);
+  if (invalido) {
+    error.value = 'Hay precios inválidos (vacíos, NaN o <= 0). Corrige antes de enviar.';
+    return;
+  }
+  // Confirmación antes de enviar
+  const confirmar = confirm(`¿Está seguro que desea cambiar ${precios.length} precios?\n\nEsta acción actualizará los precios en el sistema.`);
+  if (!confirmar) return;
+  
   aplicando.value = true;
   error.value = '';
   try {
@@ -748,6 +843,29 @@ const aplicarCambios = async () => {
   } finally {
     aplicando.value = false;
   }
+};
+
+// Limpia espacios internos en IdLista / codProducto y solo trim en descripcion
+const limpiarEspaciosDatos = () => {
+  if (!datosArchivo.value?.sheets) return;
+  for (const nombre in datosArchivo.value.sheets) {
+    const filas = datosArchivo.value.sheets[nombre]?.data;
+    if (!Array.isArray(filas)) continue;
+    filas.forEach(row => {
+      // Lista
+      if (row.IdLista) row.IdLista = String(row.IdLista).replace(/\s+/g,'');
+      if (row.idLista) row.idLista = String(row.idLista).replace(/\s+/g,'');
+      if (row.lista_id) row.lista_id = String(row.lista_id).replace(/\s+/g,'');
+      // Código producto
+      if (row.codProducto) row.codProducto = String(row.codProducto).replace(/\s+/g,'');
+      if (row.codproducto) row.codproducto = String(row.codproducto).replace(/\s+/g,'');
+      if (row.Cod) row.Cod = String(row.Cod).replace(/\s+/g,'');
+      // Descripción: solo trim extremos
+      if (row.descripcion) row.descripcion = String(row.descripcion).trim();
+      if (row.Aticulo) row.Aticulo = String(row.Aticulo).trim();
+    });
+  }
+  alert('Espacios limpiados correctamente en IDs de lista y códigos de producto.');
 };
 </script>
 
@@ -774,8 +892,147 @@ const aplicarCambios = async () => {
   }
 }
 
+/* Animación de escala para modal */
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Animación de fade-in */
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Animación de progreso suave */
+@keyframes progress-smooth {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Animación de giro lento */
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Animación de giro inverso */
+@keyframes spin-reverse {
+  0% {
+    transform: rotate(360deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Animación de pulso para anillo */
+@keyframes pulse-ring {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+/* Animación de flotación */
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+/* Animación de flotación retrasada */
+@keyframes float-delayed {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-40px, 30px) scale(0.9);
+  }
+  66% {
+    transform: translate(20px, -20px) scale(1.1);
+  }
+}
+
+/* Animación de rebote para puntos */
+@keyframes bounce-dot {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+}
+
 .animate-shimmer {
   animation: shimmer 2s infinite;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-progress-smooth {
+  animation: progress-smooth 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 2s linear infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 10s ease-in-out infinite;
+}
+
+.animate-bounce-dot {
+  animation: bounce-dot 1.4s ease-in-out infinite;
 }
 
 .card-shadow {
