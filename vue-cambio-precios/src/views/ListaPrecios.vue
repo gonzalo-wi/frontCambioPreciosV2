@@ -466,7 +466,7 @@
                       <span class="text-gray-500">$</span>
                       <input
                         type="number"
-                        step="0.01"
+                        step="1"
                         min="0"
                         :value="obtenerPrecioMostrar(item)"
                         @input="(e) => actualizarPrecio(item.idProducto, e.target.value)"
@@ -1166,9 +1166,11 @@ const actualizarPrecio = (idProducto, nuevoPrecio) => {
 
 // Función para obtener precio a mostrar (editado o original)
 const obtenerPrecioMostrar = (item) => {
-  return preciosEditados.value.has(item.idProducto) 
+  const precio = preciosEditados.value.has(item.idProducto) 
     ? preciosEditados.value.get(item.idProducto) 
     : item.precio;
+  // Convertir a entero sin decimales
+  return Math.round(parseFloat(precio) || 0);
 };
 
 // Función para verificar si un producto tiene precio editado

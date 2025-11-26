@@ -242,11 +242,14 @@
                   </svg>
                 </div>
               </th>
+              <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-100">
             <tr v-if="cargando">
-              <td colspan="7" class="px-6 py-16 text-center">
+              <td colspan="8" class="px-6 py-16 text-center">
                 <div class="flex items-center justify-center">
                   <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -258,7 +261,7 @@
             </tr>
             
             <tr v-else-if="clientes.length === 0">
-              <td colspan="7" class="px-6 py-16 text-center">
+              <td colspan="8" class="px-6 py-16 text-center">
                 <div class="flex flex-col items-center justify-center space-y-4">
                   <div class="w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center">
                     <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,6 +338,18 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                   </svg>
                 </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <button
+                  @click="eliminarClienteIndividual(cliente.nrocta, cliente.producto_id)"
+                  class="inline-flex items-center px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200 group-hover:shadow-md"
+                  title="Eliminar este precio especial"
+                >
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span class="text-xs font-medium">Eliminar</span>
+                </button>
               </td>
             </tr>
           </tbody>
@@ -1056,6 +1071,36 @@ const guardarCambios = async () => {
     };
   } finally {
     guardandoCambios.value = false;
+  }
+};
+
+// Función para eliminar un cliente individual
+const eliminarClienteIndividual = async (nrocta, producto_id) => {
+  if (!confirm(`¿Está seguro que desea eliminar el precio especial del cliente ${nrocta} para el producto ${producto_id}?`)) {
+    return;
+  }
+
+  cargando.value = true;
+
+  try {
+    // Crear array con un solo registro
+    const registros = [{
+      nrocta: String(nrocta),
+      producto_id: String(producto_id)
+    }];
+
+    await clientesPreciosService.deletePreciosEspecialesCliente(registros);
+
+    alert('✓ Precio especial eliminado correctamente');
+
+    // Recargar datos
+    await cargarClientes({ page: paginacion.value?.current_page || 1 });
+
+  } catch (err) {
+    console.error('Error al eliminar precio especial:', err);
+    alert('❌ Error: ' + (err.message || 'Error al eliminar el precio especial'));
+  } finally {
+    cargando.value = false;
   }
 };
 
