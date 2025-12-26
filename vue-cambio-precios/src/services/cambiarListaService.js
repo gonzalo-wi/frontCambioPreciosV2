@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_CONFIG, ENDPOINTS } from '../config/api.js';
+import { API_CONFIG, ENDPOINTS, getEmpresaActual, getAmbienteParam } from '../config/api.js';
 
 // Configuración de axios para archivos
 const apiFile = axios.create({
@@ -7,6 +7,29 @@ const apiFile = axios.create({
   timeout: 30000 // Timeout mayor para archivos
   // No establecemos Content-Type aquí para que axios lo haga automáticamente con multipart/form-data
 });
+
+// Interceptor para agregar empresa y ambiente a requests de archivo
+apiFile.interceptors.request.use(
+  config => {
+    // const empresa = getEmpresaActual();
+    const ambiente = getAmbienteParam();
+    
+    if (!config.params) {
+      config.params = {};
+    }
+    // config.params.empresa = empresa; // Comentado temporalmente - no implementado en backend
+    
+    // Agregar parámetro ambiente solo si es producción
+    if (ambiente) {
+      config.params.ambiente = ambiente;
+    }
+    
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Interceptor para debugging solo en desarrollo
 if (import.meta.env.DEV) {
@@ -33,6 +56,29 @@ const api = axios.create({
   timeout: API_CONFIG.TIMEOUT,
   headers: API_CONFIG.HEADERS
 });
+
+// Interceptor para agregar empresa y ambiente a requests normales
+api.interceptors.request.use(
+  config => {
+    // const empresa = getEmpresaActual();
+    const ambiente = getAmbienteParam();
+    
+    if (!config.params) {
+      config.params = {};
+    }
+    // config.params.empresa = empresa; // Comentado temporalmente - no implementado en backend
+    
+    // Agregar parámetro ambiente solo si es producción
+    if (ambiente) {
+      config.params.ambiente = ambiente;
+    }
+    
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 export const cambiarListaService = {
   // Normaliza números provenientes de strings con formato AR/US
@@ -445,6 +491,54 @@ export const cambiarListaService = {
         }
       } else if (error.request) {
         mensajeError = 'No se pudo conectar con el servidor';
+      }
+
+      return {
+        success: false,
+        error: mensajeError,
+        detalles: error.response?.data
+      };
+    }
+  },
+
+  /**
+   * Cambia las listas de precio de múltiples clientes de forma masiva
+   * @param {Array<{nrocta:string, lista_precio_id:string}>} data
+   * @returns {Promise<{success:boolean, data?:any, error?:string}>}
+   */
+  async setListaPrecioClientes(data) {
+    try {
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('No hay datos para enviar');
+      }
+
+      const payload = { data };
+      if (import.meta.env.DEV) {
+        console.log('Cambiando listas de precio:', JSON.stringify(payload, null, 2));
+      }
+
+      const response = await api.put('/cambio-precios/set-lista-precio-clientes', payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      let mensajeError = 'Error al cambiar listas de precio';
+      
+      if (error.response?.data) {
+        const serverError = error.response.data;
+        if (typeof serverError === 'string') {
+          mensajeError = serverError;
+        } else if (serverError?.error) {
+          mensajeError = serverError.error;
+        } else if (serverError?.message) {
+          mensajeError = serverError.message;
+        } else {
+          mensajeError = `Error del servidor: ${error.response.status}`;
+        }
+      } else if (error.request) {
+        mensajeError = 'No se pudo conectar con el servidor';
+      }
+
+      if (import.meta.env.DEV) {
+        console.error('Error al cambiar listas:', error.response?.status, error.response?.data || error.message);
       }
 
       return {

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_CONFIG, ENDPOINTS } from '../config/api.js';
+import { API_CONFIG, ENDPOINTS, getEmpresaActual, getAmbienteParam } from '../config/api.js';
 
 // Configuración base de axios
 const api = axios.create({
@@ -7,6 +7,30 @@ const api = axios.create({
   timeout: API_CONFIG.TIMEOUT,
   headers: API_CONFIG.HEADERS
 });
+
+// Interceptor para agregar empresa y ambiente a todas las requests
+api.interceptors.request.use(
+  config => {
+    // Agregar parámetro de empresa a URL params
+    // const empresa = getEmpresaActual();
+    const ambiente = getAmbienteParam();
+    
+    if (!config.params) {
+      config.params = {};
+    }
+    // config.params.empresa = empresa; // Comentado temporalmente - no implementado en backend
+    
+    // Agregar parámetro ambiente solo si es producción
+    if (ambiente) {
+      config.params.ambiente = ambiente;
+    }
+    
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
 
 // Interceptor para manejo de errores
 api.interceptors.response.use(

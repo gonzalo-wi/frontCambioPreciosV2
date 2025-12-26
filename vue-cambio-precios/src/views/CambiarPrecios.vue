@@ -867,6 +867,7 @@ const limpiarEspaciosDatos = () => {
   }
   alert('Espacios limpiados correctamente en IDs de lista y códigos de producto.');
 };
+
 </script>
 
 <style scoped>
@@ -912,6 +913,24 @@ const limpiarEspaciosDatos = () => {
   100% {
     opacity: 1;
   }
+}
+
+/* Transiciones para modal */
+.modal-enter-active, .modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-active > div, .modal-leave-active > div {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal-enter-from, .modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from > div, .modal-leave-to > div {
+  transform: scale(0.95) translateY(-20px);
+  opacity: 0;
 }
 
 /* Animación de progreso suave */

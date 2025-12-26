@@ -3,6 +3,8 @@ import HomeView from '../views/HomeView.vue'
 import ListaPrecios from '../views/ListaPrecios.vue'
 import ClientesDescuentos from '../views/ClientesDescuentos.vue'
 import CambiarPrecios from '../views/CambiarPrecios.vue'
+import CambiarListasClientes from '../views/CambiarListasClientes.vue'
+import RestaurarBackup from '../views/RestaurarBackup.vue'
 import LoginView from '../views/LoginView.vue'
 
 const routes = [
@@ -44,6 +46,22 @@ const routes = [
     component: CambiarPrecios,
     meta: {
       title: 'Cambiar Precios'
+    }
+  },
+  {
+    path: '/cambiar-listas-clientes',
+    name: 'CambiarListasClientes',
+    component: CambiarListasClientes,
+    meta: {
+      title: 'Cambiar Listas de Clientes'
+    }
+  },
+  {
+    path: '/restaurar-backup',
+    name: 'RestaurarBackup',
+    component: RestaurarBackup,
+    meta: {
+      title: 'Restaurar Backup'
     }
   }
   // Aquí puedes agregar más rutas en el futuro

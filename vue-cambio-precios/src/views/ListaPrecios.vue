@@ -48,7 +48,9 @@
           </svg>
           Exportar Excel
         </button>
-        <button class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105">
+        <button 
+          @click="abrirModalCrearLista"
+          class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105">
           <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
           </svg>
@@ -436,8 +438,34 @@
             </div>
           </div>
 
-          <!-- Tabla de productos -->
-          <div class="flex-1 overflow-auto border border-gray-200 rounded-lg">
+          <!-- Pestañas -->
+          <div class="flex border-b border-gray-200 mb-4">
+            <button
+              @click="mostrarSeccionAgregar = false"
+              :class="[
+                'px-4 py-2 text-sm font-medium transition-colors',
+                !mostrarSeccionAgregar
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              ]"
+            >
+              Productos Actuales ({{ itemsFiltradosModal.length }})
+            </button>
+            <button
+              @click="mostrarSeccionAgregar = true; cargarProductosDisponibles()"
+              :class="[
+                'px-4 py-2 text-sm font-medium transition-colors',
+                mostrarSeccionAgregar
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              ]"
+            >
+              Agregar Productos ({{ productosDisponiblesFiltrados.length }})
+            </button>
+          </div>
+
+          <!-- Tabla de productos actuales -->
+          <div v-show="!mostrarSeccionAgregar" class="flex-1 overflow-auto border border-gray-200 rounded-lg">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50 sticky top-0">
                 <tr>
@@ -495,6 +523,72 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Tabla de productos disponibles para agregar -->
+          <div v-show="mostrarSeccionAgregar" class="flex-1 overflow-auto">
+            <!-- Barra de búsqueda para productos disponibles -->
+            <div class="mb-4">
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                </div>
+                <input
+                  v-model="busquedaProductosDisponibles"
+                  type="text"
+                  placeholder="Buscar productos disponibles..."
+                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <!-- Loading productos disponibles -->
+            <div v-if="cargandoProductosDisponibles" class="flex justify-center items-center py-12">
+              <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+
+            <!-- Tabla de productos disponibles -->
+            <div v-else-if="productosDisponibles.length > 0" class="border border-gray-200 rounded-lg overflow-hidden">
+              <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Producto</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio</th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="producto in productosDisponiblesFiltrados" :key="producto.id" class="hover:bg-gray-50">
+                      <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ producto.id }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-600">{{ producto.descripcion }}</td>
+                      <td class="px-4 py-3">
+                        <div class="flex items-center justify-end gap-2">
+                          <span class="text-gray-500">$</span>
+                          <input
+                            v-model.number="preciosNuevosProductos[producto.id]"
+                            type="number"
+                            step="1"
+                            min="0"
+                            placeholder="0"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-else class="text-center py-8 text-gray-500">
+              <svg class="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <p class="text-sm">{{ busquedaProductosDisponibles ? 'No se encontraron productos' : 'Todos los productos ya están en esta lista' }}</p>
+            </div>
+          </div>
         </div>
 
         <!-- Footer del modal -->
@@ -516,14 +610,23 @@
 
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-4">
-              <p class="text-sm text-gray-600">
+              <p v-if="!mostrarSeccionAgregar" class="text-sm text-gray-600">
                 Total de productos: <span class="font-medium">{{ itemsFiltradosModal.length }}</span>
               </p>
-              <p v-if="hayCambiosSinGuardar" class="text-sm text-blue-600 font-medium flex items-center gap-1">
+              <p v-else class="text-sm text-gray-600">
+                Productos disponibles: <span class="font-medium">{{ productosDisponiblesFiltrados.length }}</span>
+              </p>
+              <p v-if="hayCambiosSinGuardar && !mostrarSeccionAgregar" class="text-sm text-blue-600 font-medium flex items-center gap-1">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                 </svg>
                 {{ preciosEditados.size }} precio{{ preciosEditados.size !== 1 ? 's' : '' }} modificado{{ preciosEditados.size !== 1 ? 's' : '' }}
+              </p>
+              <p v-if="hayNuevosProductosConPrecio && mostrarSeccionAgregar" class="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/>
+                </svg>
+                {{ Object.keys(preciosNuevosProductos).filter(k => preciosNuevosProductos[k] > 0).length }} producto(s) con precio
               </p>
             </div>
             <div class="flex gap-3">
@@ -534,31 +637,53 @@
               >
                 Cerrar
               </button>
-              <button
-                v-if="hayCambiosSinGuardar"
-                @click="guardarCambios"
-                :disabled="guardandoCambios"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
-              >
-                <svg v-if="!guardandoCambios" class="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z"/>
-                </svg>
-                <svg v-else class="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {{ guardandoCambios ? 'Guardando...' : 'Guardar Cambios' }}
-              </button>
-              <button
-                @click="exportarLista(listaSeleccionada)"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-                :disabled="guardandoCambios"
-              >
-                <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Exportar CSV
-              </button>
+              
+              <!-- Botones para sección de productos actuales -->
+              <template v-if="!mostrarSeccionAgregar">
+                <button
+                  v-if="hayCambiosSinGuardar"
+                  @click="guardarCambios"
+                  :disabled="guardandoCambios"
+                  class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                >
+                  <svg v-if="!guardandoCambios" class="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z"/>
+                  </svg>
+                  <svg v-else class="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ guardandoCambios ? 'Guardando...' : 'Guardar Cambios' }}
+                </button>
+                <button
+                  @click="exportarLista(listaSeleccionada)"
+                  class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                  :disabled="guardandoCambios"
+                >
+                  <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Exportar CSV
+                </button>
+              </template>
+              
+              <!-- Botón para sección de agregar productos -->
+              <template v-else>
+                <button
+                  @click="guardarNuevosProductos"
+                  :disabled="guardandoCambios || !hayNuevosProductosConPrecio"
+                  class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <svg v-if="!guardandoCambios" class="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/>
+                  </svg>
+                  <svg v-else class="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ guardandoCambios ? 'Guardando...' : 'Agregar Productos' }}
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -991,6 +1116,217 @@
       </div>
     </div>
 
+    <!-- Modal para crear nueva lista de precios -->
+    <div v-if="mostrarModalCrearLista" class="fixed inset-0 z-50 overflow-y-auto modal-backdrop" @click.self="cerrarModalCrearLista">
+      <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col" @click.stop>
+          
+          <!-- Header del modal -->
+          <div class="sticky top-0 z-30 bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 rounded-t-2xl">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-2xl font-bold text-white">
+                    {{ pasoCreacion === 1 ? 'Crear Nueva Lista' : 'Configurar Precios' }}
+                  </h3>
+                  <p class="text-blue-100 text-sm mt-1">
+                    {{ pasoCreacion === 1 ? 'Ingresa los datos de la nueva lista' : 'Configura los precios para cada producto' }}
+                  </p>
+                </div>
+              </div>
+              <button
+                @click="cerrarModalCrearLista"
+                class="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-all duration-200"
+              >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Progress bar -->
+            <div class="mt-4 flex items-center space-x-2">
+              <div class="flex-1 flex items-center">
+                <div class="flex items-center space-x-2 flex-1">
+                  <div :class="['w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold', pasoCreacion >= 1 ? 'bg-white text-blue-600' : 'bg-blue-400 text-white']">
+                    1
+                  </div>
+                  <div class="flex-1 h-1 bg-blue-400"></div>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <div :class="['w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold', pasoCreacion >= 2 ? 'bg-white text-blue-600' : 'bg-blue-400 text-white']">
+                  2
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contenido del modal -->
+          <div class="p-6 overflow-y-auto flex-1">
+            
+            <!-- Paso 1: Datos de la lista -->
+            <div v-if="pasoCreacion === 1">
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    ID de la Lista <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    v-model="nuevaLista.id"
+                    type="text"
+                    placeholder="Ej: ListaEspecial"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    maxlength="50"
+                  />
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Descripción <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    v-model="nuevaLista.descripcion"
+                    type="text"
+                    placeholder="Ej: Lista de precios para clientes especiales"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    maxlength="200"
+                  />
+                </div>
+
+                <div v-if="errorCrearLista" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div class="flex items-start space-x-3">
+                    <svg class="w-5 h-5 text-red-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-sm text-red-700">{{ errorCrearLista }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Paso 2: Configurar precios de productos -->
+            <div v-if="pasoCreacion === 2">
+              <!-- Barra de búsqueda -->
+              <div class="mb-4">
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                  </div>
+                  <input
+                    v-model="busquedaProductos"
+                    type="text"
+                    placeholder="Buscar productos..."
+                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <!-- Loading productos -->
+              <div v-if="cargandoProductos" class="flex justify-center items-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+
+              <!-- Tabla de productos -->
+              <div v-else-if="productos.length > 0" class="border border-gray-200 rounded-lg overflow-hidden">
+                <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Producto</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="producto in productosFiltrados" :key="producto.id" class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ producto.id }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ producto.descripcion }}</td>
+                        <td class="px-4 py-3">
+                          <input
+                            v-model.number="preciosNuevaLista[producto.id]"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div v-else class="text-center py-8 text-gray-500">
+                No se encontraron productos
+              </div>
+
+              <div v-if="errorCrearLista" class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-start space-x-3">
+                  <svg class="w-5 h-5 text-red-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <p class="text-sm text-red-700">{{ errorCrearLista }}</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Footer del modal -->
+          <div class="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between">
+            <div>
+              <button
+                v-if="pasoCreacion === 2"
+                @click="pasoCreacion = 1"
+                :disabled="guardandoNuevaLista"
+                class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Atrás
+              </button>
+            </div>
+            <div class="flex space-x-3">
+              <button
+                @click="cerrarModalCrearLista"
+                :disabled="guardandoNuevaLista"
+                class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                v-if="pasoCreacion === 1"
+                @click="crearListaPaso1"
+                :disabled="!nuevaLista.id || !nuevaLista.descripcion || guardandoNuevaLista"
+                class="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Siguiente
+              </button>
+              <button
+                v-if="pasoCreacion === 2"
+                @click="guardarNuevaListaCompleta"
+                :disabled="guardandoNuevaLista || totalPreciosConfigurados === 0"
+                class="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center space-x-2"
+              >
+                <svg v-if="guardandoNuevaLista" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{{ guardandoNuevaLista ? 'Guardando...' : `Guardar (${totalPreciosConfigurados} precios)` }}</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
     </div>
   </div>
 </template>
@@ -1031,6 +1367,25 @@ const errorImportacion = ref(null);
 const isDragging = ref(false);
 const hojaExpandida = ref(null);
 const fileInput = ref(null);
+
+// Estados para creación de nueva lista
+const mostrarModalCrearLista = ref(false);
+const pasoCreacion = ref(1); // 1: datos de lista, 2: configurar precios
+const nuevaLista = ref({ id: '', descripcion: '' });
+const productos = ref([]);
+const cargandoProductos = ref(false);
+const preciosNuevaLista = ref({});
+const guardandoNuevaLista = ref(false);
+const errorCrearLista = ref(null);
+const busquedaProductos = ref('');
+const listaIdCreada = ref(null);
+
+// Estados para productos disponibles en el modal de detalles
+const productosDisponibles = ref([]);
+const cargandoProductosDisponibles = ref(false);
+const preciosNuevosProductos = ref({});
+const busquedaProductosDisponibles = ref('');
+const mostrarSeccionAgregar = ref(false);
 
 // Variables de paginación
 const currentPage = ref(1);
@@ -1098,6 +1453,46 @@ const totalProductosSeleccionados = computed(() => {
   }, 0);
 });
 
+// Computed para productos filtrados en modal de creación
+const productosFiltrados = computed(() => {
+  if (!busquedaProductos.value.trim()) {
+    return productos.value;
+  }
+  const searchTerm = busquedaProductos.value.toLowerCase();
+  return productos.value.filter(producto =>
+    producto.id.toLowerCase().includes(searchTerm) ||
+    (producto.descripcion && producto.descripcion.toLowerCase().includes(searchTerm))
+  );
+});
+
+// Computed para total de precios configurados
+const totalPreciosConfigurados = computed(() => {
+  return Object.keys(preciosNuevaLista.value).filter(key => {
+    const precio = preciosNuevaLista.value[key];
+    return precio !== null && precio !== undefined && precio !== '' && precio > 0;
+  }).length;
+});
+
+// Computed para productos disponibles filtrados
+const productosDisponiblesFiltrados = computed(() => {
+  if (!busquedaProductosDisponibles.value.trim()) {
+    return productosDisponibles.value;
+  }
+  const searchTerm = busquedaProductosDisponibles.value.toLowerCase();
+  return productosDisponibles.value.filter(producto =>
+    producto.id.toLowerCase().includes(searchTerm) ||
+    (producto.descripcion && producto.descripcion.toLowerCase().includes(searchTerm))
+  );
+});
+
+// Computed para verificar si hay nuevos productos con precio
+const hayNuevosProductosConPrecio = computed(() => {
+  return Object.keys(preciosNuevosProductos.value).some(key => {
+    const precio = preciosNuevosProductos.value[key];
+    return precio !== null && precio !== undefined && precio !== '' && precio > 0;
+  });
+});
+
 // Funciones de paginación
 const goToPage = (page) => {
   if (page >= 1 && page <= totalPages.value) {
@@ -1147,12 +1542,20 @@ const verDetalles = (lista) => {
   busquedaModal.value = '';
   preciosEditados.value.clear();
   mensajeModal.value = null;
+  mostrarSeccionAgregar.value = false;
+  productosDisponibles.value = [];
+  preciosNuevosProductos.value = {};
+  busquedaProductosDisponibles.value = '';
 };
 
 const cerrarModal = () => {
   listaSeleccionada.value = null;
   preciosEditados.value.clear();
   mensajeModal.value = null;
+  mostrarSeccionAgregar.value = false;
+  productosDisponibles.value = [];
+  preciosNuevosProductos.value = {};
+  busquedaProductosDisponibles.value = '';
 };
 
 // Función para actualizar precio editado
@@ -1249,6 +1652,110 @@ const guardarCambios = async () => {
     mensajeModal.value = {
       tipo: 'error',
       texto: err.message || 'Error al guardar los cambios'
+    };
+  } finally {
+    guardandoCambios.value = false;
+  }
+};
+
+// Función para cargar productos disponibles (que no están en la lista)
+const cargarProductosDisponibles = async () => {
+  if (productosDisponibles.value.length > 0) return; // Ya están cargados
+  
+  cargandoProductosDisponibles.value = true;
+  try {
+    // Obtener todos los productos
+    const todosProductosRaw = await listaDePrecioService.getProductos();
+    
+    // Mapear los productos a la estructura esperada
+    const todosProductos = todosProductosRaw.map(p => ({
+      id: p.idProducto,
+      descripcion: p.Descripcion,
+      abreviatura: p.Abreviatura
+    }));
+    
+    // Obtener IDs de productos que ya están en la lista
+    const productosEnLista = new Set(
+      listaSeleccionada.value.items.map(item => item.idProducto)
+    );
+    
+    // Filtrar productos que NO están en la lista
+    productosDisponibles.value = todosProductos.filter(
+      producto => !productosEnLista.has(producto.id)
+    );
+    
+    console.log('Productos disponibles:', productosDisponibles.value.length);
+  } catch (err) {
+    console.error('Error al cargar productos disponibles:', err);
+    mensajeModal.value = {
+      tipo: 'error',
+      texto: 'Error al cargar los productos disponibles'
+    };
+  } finally {
+    cargandoProductosDisponibles.value = false;
+  }
+};
+
+// Función para guardar nuevos productos en la lista
+const guardarNuevosProductos = async () => {
+  if (!hayNuevosProductosConPrecio.value) {
+    mensajeModal.value = {
+      tipo: 'error',
+      texto: 'Debes agregar al menos un precio para los nuevos productos'
+    };
+    return;
+  }
+
+  guardandoCambios.value = true;
+  mensajeModal.value = null;
+
+  try {
+    // Preparar datos para enviar
+    const datosPrecios = [];
+    
+    for (const [productoId, precio] of Object.entries(preciosNuevosProductos.value)) {
+      if (precio !== null && precio !== undefined && precio !== '' && precio > 0) {
+        datosPrecios.push({
+          lista_id: listaSeleccionada.value.idListaPrecios,
+          producto_id: productoId,
+          precio: parseFloat(precio),
+          descripcion_lista: listaSeleccionada.value.descripcion
+        });
+      }
+    }
+
+    console.log('Agregando productos:', datosPrecios);
+
+    // Insertar nuevos productos en la lista
+    const response = await listaDePrecioService.insertarListaPreciosProductos(datosPrecios);
+    
+    mensajeModal.value = {
+      tipo: 'success',
+      texto: `Se agregaron ${datosPrecios.length} producto(s) correctamente`
+    };
+
+    // Recargar las listas para obtener datos actualizados
+    await cargarListas();
+    
+    // Actualizar la lista seleccionada con los datos nuevos
+    const listaActualizada = listas.value.find(
+      l => l.idListaPrecios === listaSeleccionada.value.idListaPrecios
+    );
+    
+    if (listaActualizada) {
+      listaSeleccionada.value = listaActualizada;
+    }
+
+    // Limpiar los datos de nuevos productos
+    preciosNuevosProductos.value = {};
+    productosDisponibles.value = [];
+    mostrarSeccionAgregar.value = false;
+
+  } catch (err) {
+    console.error('Error al agregar productos:', err);
+    mensajeModal.value = {
+      tipo: 'error',
+      texto: err.message || 'Error al agregar los productos'
     };
   } finally {
     guardandoCambios.value = false;
@@ -1451,6 +1958,125 @@ const limpiarArchivo = () => {
   hojaExpandida.value = null;
   if (fileInput.value) {
     fileInput.value.value = '';
+  }
+};
+
+// Funciones para crear nueva lista de precios
+const abrirModalCrearLista = () => {
+  mostrarModalCrearLista.value = true;
+  pasoCreacion.value = 1;
+  nuevaLista.value = { id: '', descripcion: '' };
+  productos.value = [];
+  preciosNuevaLista.value = {};
+  errorCrearLista.value = null;
+  busquedaProductos.value = '';
+  listaIdCreada.value = null;
+};
+
+const cerrarModalCrearLista = () => {
+  if (guardandoNuevaLista.value) return;
+  mostrarModalCrearLista.value = false;
+  pasoCreacion.value = 1;
+  nuevaLista.value = { id: '', descripcion: '' };
+  productos.value = [];
+  preciosNuevaLista.value = {};
+  errorCrearLista.value = null;
+  busquedaProductos.value = '';
+  listaIdCreada.value = null;
+};
+
+const crearListaPaso1 = async () => {
+  if (!nuevaLista.value.id || !nuevaLista.value.descripcion) {
+    errorCrearLista.value = 'Por favor completa todos los campos';
+    return;
+  }
+
+  guardandoNuevaLista.value = true;
+  errorCrearLista.value = null;
+
+  try {
+    // Crear la lista en el backend
+    const response = await listaDePrecioService.crearNuevaLista(
+      nuevaLista.value.id,
+      nuevaLista.value.descripcion
+    );
+
+    // Si llegamos aquí, la lista se creó exitosamente
+    console.log('Lista creada, respuesta:', response);
+    listaIdCreada.value = nuevaLista.value.id;
+    
+    // Cargar productos
+    cargandoProductos.value = true;
+    const productosRaw = await listaDePrecioService.getProductos();
+    
+    // Mapear los productos a la estructura esperada por el componente
+    productos.value = productosRaw.map(p => ({
+      id: p.idProducto,
+      descripcion: p.Descripcion,
+      abreviatura: p.Abreviatura
+    }));
+    
+    // Inicializar precios en 0 o vacío
+    preciosNuevaLista.value = {};
+    productos.value.forEach(producto => {
+      preciosNuevaLista.value[producto.id] = null;
+    });
+    
+    pasoCreacion.value = 2;
+  } catch (err) {
+    console.error('Error al crear lista:', err);
+    errorCrearLista.value = err.message || 'Error al crear la lista';
+  } finally {
+    guardandoNuevaLista.value = false;
+    cargandoProductos.value = false;
+  }
+};
+
+const guardarNuevaListaCompleta = async () => {
+  guardandoNuevaLista.value = true;
+  errorCrearLista.value = null;
+
+  try {
+    // Preparar datos para enviar
+    const datosPrecios = [];
+    
+    for (const [productoId, precio] of Object.entries(preciosNuevaLista.value)) {
+      if (precio !== null && precio !== undefined && precio !== '' && precio > 0) {
+        datosPrecios.push({
+          lista_id: listaIdCreada.value,
+          producto_id: productoId,
+          precio: parseFloat(precio),
+          descripcion_lista: nuevaLista.value.descripcion
+        });
+      }
+    }
+
+    if (datosPrecios.length === 0) {
+      errorCrearLista.value = 'Debes configurar al menos un precio';
+      return;
+    }
+
+    console.log('Enviando precios:', datosPrecios.length, 'productos');
+    
+    // Insertar precios de productos
+    const response = await listaDePrecioService.insertarListaPreciosProductos(datosPrecios);
+    
+    // Si llegamos aquí, los precios se guardaron exitosamente
+    console.log('Precios guardados, respuesta:', response);
+    
+    // Recargar listas
+    await cargarListas();
+    
+    // Cerrar modal
+    cerrarModalCrearLista();
+    
+    // Mostrar mensaje de éxito
+    alert(`Lista creada exitosamente con ${datosPrecios.length} productos`);
+  } catch (err) {
+    console.error('Error al guardar precios:', err);
+    errorCrearLista.value = err.message || 'Error al guardar los precios';
+  } finally {
+    guardandoNuevaLista.value = false;
   }
 };
 

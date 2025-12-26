@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_CONFIG } from '../config/api.js';
+import { API_CONFIG, getAmbienteParam } from '../config/api.js';
 
 const apiBackend = axios.create({
     baseURL : API_CONFIG.BASE_URL + '/',
@@ -8,7 +8,19 @@ const apiBackend = axios.create({
 });
 
 apiBackend.interceptors.request.use(
-    (Response) => Response,
+    (config) => {
+        const ambiente = getAmbienteParam();
+        
+        // Agregar parámetro ambiente solo si es producción
+        if (ambiente) {
+            if (!config.params) {
+                config.params = {};
+            }
+            config.params.ambiente = ambiente;
+        }
+        
+        return config;
+    },
     (error) => {console.error('Error en la solicitud:', error); return Promise.reject(error);}
 );
 
@@ -90,6 +102,103 @@ export const listaDePrecioService = {
     } catch (error) {
       console.error('Error al buscar producto en listas:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Crea una nueva lista de precios
+   * @param {string} id - ID de la nueva lista
+   * @param {string} descripcion - Descripción de la lista
+   * @returns {Promise<Object>} Respuesta del servidor
+   */
+  async crearNuevaLista(id, descripcion) {
+    try {
+      const ambiente = getAmbienteParam();
+      const payload = {
+        id,
+        descripcion
+      };
+      
+      // Si hay ambiente, agregarlo al body
+      if (ambiente) {
+        payload.ambiente = ambiente;
+      }
+      
+      console.log('Creando lista con payload:', payload);
+      const response = await apiBackend.post('cambio-precios/insertar-nueva-lista-precio', payload);
+      console.log('Respuesta exitosa:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear nueva lista:', error);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data completo:', error.response?.data);
+      
+      // El backend puede responder con diferentes estructuras
+      const errorData = error.response?.data;
+      let mensajeError = 'Error al crear la nueva lista de precios';
+      
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          mensajeError = errorData;
+        } else if (errorData.message) {
+          mensajeError = errorData.message;
+        } else if (errorData.error) {
+          mensajeError = errorData.error;
+        } else if (errorData.mensaje) {
+          mensajeError = errorData.mensaje;
+        }
+      } else if (error.message) {
+        mensajeError = error.message;
+      }
+      
+      throw new Error(mensajeError);
+    }
+  },
+
+  /**
+   * Obtiene todos los productos disponibles
+   * @returns {Promise<Array>} Lista de productos
+   */
+  async getProductos() {
+    try {
+      const response = await apiBackend.get('cambio-precios/get-productos');
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+      throw new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Error al obtener los productos'
+      );
+    }
+  },
+
+  /**
+   * Inserta o actualiza precios de productos en una lista
+   * @param {Array} data - Array de objetos con lista_id, producto_id, precio, descripcion_lista
+   * @returns {Promise<Object>} Respuesta del servidor
+   */
+  async insertarListaPreciosProductos(data) {
+    try {
+      const ambiente = getAmbienteParam();
+      const payload = { data };
+      
+      // Si hay ambiente, agregarlo al body
+      if (ambiente) {
+        payload.ambiente = ambiente;
+      }
+      
+      const response = await apiBackend.post('cambio-precios/insertar-lista-precios-productos', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Error al insertar precios de productos:', error);
+      console.error('Response data:', error.response?.data);
+      throw new Error(
+        error.response?.data?.message || 
+        error.response?.data?.error ||
+        error.message || 
+        'Error al insertar los precios de productos'
+      );
     }
   }
 };

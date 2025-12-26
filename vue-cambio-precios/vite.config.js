@@ -8,7 +8,7 @@ export default defineConfig({
     proxy: {
       // Proxy para todas las peticiones API
       '/api': {
-        target: 'http://192.168.0.251:8083',
+        target: 'http://192.168.0.58',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {
