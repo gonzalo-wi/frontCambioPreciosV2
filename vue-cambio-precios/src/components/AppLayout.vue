@@ -346,8 +346,20 @@
             <!-- Usuario -->
             <div class="flex items-center space-x-2">
               <div class="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full"></div>
-              <span class="text-sm font-medium text-gray-700">Admin</span>
+              <span class="text-sm font-medium text-gray-700">{{ currentUser?.nombre || 'Admin' }}</span>
             </div>
+
+            <!-- Botón Cerrar Sesión -->
+            <button 
+              @click="handleLogout"
+              class="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 transition-colors duration-200 group"
+              title="Cerrar Sesión"
+            >
+              <svg class="w-5 h-5 text-red-600 group-hover:text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+              <span class="text-sm font-medium text-red-600 group-hover:text-red-700">Salir</span>
+            </button>
           </div>
         </div>
       </header>
@@ -362,13 +374,19 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useEmpresa } from '../composables/useEmpresa';
 import { useAmbiente } from '../composables/useAmbiente';
+import { useAuthStore } from '../stores/auth';
 
 const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 const sidebarAbierto = ref(true);
 const mostrarSelectorEmpresa = ref(false);
+
+// Obtener usuario actual
+const currentUser = computed(() => authStore.currentUser);
 
 // Composable de empresa
 const { empresaActual: empresaActualRef, empresasDisponibles, cambiarEmpresa, getEmpresaActual } = useEmpresa();
@@ -397,6 +415,13 @@ const toggleAmbiente = () => {
   
   // Recargar la página para que se apliquen los cambios en todas las peticiones
   window.location.reload();
+};
+
+const handleLogout = () => {
+  if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
+    authStore.logout();
+    router.push('/login');
+  }
 };
 
 const getTituloPagina = () => {

@@ -193,8 +193,10 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 // Estado del formulario
 const username = ref('');
@@ -204,27 +206,21 @@ const showPassword = ref(false);
 const loading = ref(false);
 const errorMessage = ref('');
 
-// Función de manejo de login (placeholder)
+// Función de manejo de login
 const handleLogin = async () => {
   loading.value = true;
   errorMessage.value = '';
 
   try {
-    // Simulación de delay de autenticación
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const result = await authStore.login(username.value, password.value);
 
-    // TODO: Aquí irá la lógica de autenticación real
-    console.log('Login attempt:', {
-      username: username.value,
-      password: '***',
-      rememberMe: rememberMe.value
-    });
-
-    // Por ahora, mostrar mensaje de que no está implementado
-    errorMessage.value = 'La autenticación aún no está implementada. Vista de demostración.';
-    
-    // Descomentar cuando esté lista la autenticación:
-    // router.push('/');
+    if (result.success) {
+      // Login exitoso, redirigir al home
+      router.push('/');
+    } else {
+      // Mostrar error
+      errorMessage.value = result.error || 'Error al iniciar sesión';
+    }
   } catch (error) {
     errorMessage.value = 'Error al iniciar sesión. Por favor, intenta de nuevo.';
     console.error('Error de login:', error);

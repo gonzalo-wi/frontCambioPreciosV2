@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import HomeView from '../views/HomeView.vue'
 import ListaPrecios from '../views/ListaPrecios.vue'
 import ClientesDescuentos from '../views/ClientesDescuentos.vue'
@@ -13,7 +14,8 @@ const routes = [
     name: 'Login',
     component: LoginView,
     meta: {
-      title: 'Iniciar Sesión'
+      title: 'Iniciar Sesión',
+      requiresAuth: false
     }
   },
   {
@@ -21,7 +23,8 @@ const routes = [
     name: 'Home',
     component: HomeView,
     meta: {
-      title: 'Inicio'
+      title: 'Inicio',
+      requiresAuth: true
     }
   },
   {
@@ -29,7 +32,8 @@ const routes = [
     name: 'ListaPrecios',
     component: ListaPrecios,
     meta: {
-      title: 'Listas de Precios'
+      title: 'Listas de Precios',
+      requiresAuth: true
     }
   },
   {
@@ -37,7 +41,8 @@ const routes = [
     name: 'ClientesDescuentos',
     component: ClientesDescuentos,
     meta: {
-      title: 'Clientes con Descuentos'
+      title: 'Clientes con Descuentos',
+      requiresAuth: true
     }
   },
   {
@@ -45,7 +50,8 @@ const routes = [
     name: 'CambiarPrecios',
     component: CambiarPrecios,
     meta: {
-      title: 'Cambiar Precios'
+      title: 'Cambiar Precios',
+      requiresAuth: true
     }
   },
   {
@@ -53,7 +59,8 @@ const routes = [
     name: 'CambiarListasClientes',
     component: CambiarListasClientes,
     meta: {
-      title: 'Cambiar Listas de Clientes'
+      title: 'Cambiar Listas de Clientes',
+      requiresAuth: true
     }
   },
   {
@@ -61,7 +68,8 @@ const routes = [
     name: 'RestaurarBackup',
     component: RestaurarBackup,
     meta: {
-      title: 'Restaurar Backup'
+      title: 'Restaurar Backup',
+      requiresAuth: true
     }
   }
   // Aquí puedes agregar más rutas en el futuro
@@ -77,14 +85,30 @@ const router = createRouter({
   routes
 })
 
-// Guard para actualizar el título de la página
+// Guard para autenticación y actualizar título
 router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  
+  // Actualizar título
   if (to.meta.title) {
     document.title = `${to.meta.title} - Cambio de Precios`
   } else {
     document.title = 'Cambio de Precios'
   }
-  next()
+
+  // Verificar autenticación
+  const requiresAuth = to.meta.requiresAuth !== false // Por defecto requiere auth
+  const isAuthenticated = authStore.checkAuth()
+
+  if (requiresAuth && !isAuthenticated) {
+    // Redirigir al login si la ruta requiere autenticación y no está autenticado
+    next('/login')
+  } else if (to.path === '/login' && isAuthenticated) {
+    // Si ya está autenticado y va al login, redirigir al home
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

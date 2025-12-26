@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  vue-cambio-precios:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vue-cambio-precios
+    ports:
+      - "5176:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
