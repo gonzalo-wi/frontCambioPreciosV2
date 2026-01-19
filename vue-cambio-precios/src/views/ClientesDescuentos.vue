@@ -545,17 +545,36 @@
 
             <!-- Vista previa de datos -->
             <div v-if="datosExcelProcesados.length > 0" class="mt-6">
-              <h4 class="text-lg font-semibold text-gray-800 mb-3">
-                Vista Previa ({{ datosExcelProcesados.length }} registros)
-              </h4>
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-lg font-semibold text-gray-800">
+                  Vista Previa ({{ datosExcelProcesados.length }} registros)
+                </h4>
+                <button
+                  @click="exportarVistaPreviaExcel"
+                  :disabled="cargandoComparacion"
+                  class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg v-if="cargandoComparacion" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <span class="font-medium">{{ cargandoComparacion ? 'Obteniendo precios...' : 'Exportar Vista Previa' }}</span>
+                </button>
+              </div>
               <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50 sticky top-0">
                     <tr>
                       <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nro Cuenta</th>
                       <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Producto ID</th>
-                      <th v-if="modoExcel === 'modificar'" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                        Precio Especial
+                      <th v-if="modoExcel === 'modificar'" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                        Precio Actual
+                      </th>
+                      <th v-if="modoExcel === 'modificar'" class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                        Precio Nuevo
                       </th>
                     </tr>
                   </thead>
@@ -563,12 +582,17 @@
                     <tr v-for="(item, index) in datosExcelProcesados.slice(0, 10)" :key="index" class="hover:bg-gray-50">
                       <td class="px-4 py-2 text-sm text-gray-900">{{ item.nrocta }}</td>
                       <td class="px-4 py-2 text-sm text-gray-900">{{ item.producto_id }}</td>
-                      <td v-if="modoExcel === 'modificar'" class="px-4 py-2 text-sm text-gray-900">
+                      <td v-if="modoExcel === 'modificar'" class="px-4 py-2 text-sm text-gray-600 text-right">
+                        <span v-if="cargandoComparacion" class="italic text-xs">Cargando...</span>
+                        <span v-else-if="item.precio_lista_actual !== undefined">{{ formatearPrecio(item.precio_lista_actual) }}</span>
+                        <span v-else class="italic text-xs">-</span>
+                      </td>
+                      <td v-if="modoExcel === 'modificar'" class="px-4 py-2 text-sm text-gray-900 text-right font-semibold">
                         {{ formatearPrecio(item.precio_especial) }}
                       </td>
                     </tr>
                     <tr v-if="datosExcelProcesados.length > 10">
-                      <td :colspan="modoExcel === 'modificar' ? 3 : 2" class="px-4 py-2 text-sm text-gray-500 text-center italic">
+                      <td :colspan="modoExcel === 'modificar' ? 4 : 2" class="px-4 py-2 text-sm text-gray-500 text-center italic">
                         ... y {{ datosExcelProcesados.length - 10 }} registros más
                       </td>
                     </tr>
@@ -656,6 +680,136 @@
       </div>
     </Transition>
 
+    <!-- Modal de Confirmación de Cambios -->
+    <Transition name="fade">
+      <div v-if="modalConfirmacionAbierto" class="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <!-- Header -->
+          <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 text-white">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div>
+                  <h3 class="text-2xl font-bold">Confirmar Cambios de Precios</h3>
+                  <p class="text-sm text-green-100">Revisa los cambios antes de aplicarlos</p>
+                </div>
+              </div>
+              <button @click="cancelarCambiosPrecios" class="text-white hover:text-gray-200 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Información de resumen -->
+          <div class="px-6 py-4 bg-blue-50 border-b border-blue-100">
+            <div class="grid grid-cols-4 gap-4">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ datosComparacion.length }}</div>
+                <div class="text-xs text-gray-600">Registros Totales</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">
+                  {{ datosComparacion.filter(d => d.diferencia > 0).length }}
+                </div>
+                <div class="text-xs text-gray-600">Aumentos</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-red-600">
+                  {{ datosComparacion.filter(d => d.diferencia < 0).length }}
+                </div>
+                <div class="text-xs text-gray-600">Disminuciones</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-gray-600">
+                  {{ datosComparacion.filter(d => d.diferencia === 0).length }}
+                </div>
+                <div class="text-xs text-gray-600">Sin Cambios</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensaje sobre el Excel descargado -->
+          <div class="px-6 py-3 bg-yellow-50 border-b border-yellow-100">
+            <div class="flex items-center space-x-2 text-yellow-800">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <span class="text-sm font-medium">Se ha descargado un archivo Excel con la comparación detallada de todos los cambios.</span>
+            </div>
+          </div>
+
+          <!-- Tabla de comparación (scrollable) -->
+          <div class="flex-1 overflow-auto px-6 py-4">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50 sticky top-0 z-10">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">NroCta</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Producto</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Precio Actual</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Precio Nuevo</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Diferencia</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Cambio %</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <tr v-for="(item, index) in datosComparacion" :key="index" 
+                    :class="item.diferencia > 0 ? 'bg-green-50' : item.diferencia < 0 ? 'bg-red-50' : 'bg-gray-50'"
+                    class="hover:bg-opacity-75 transition-colors">
+                  <td class="px-4 py-3 text-sm font-mono font-semibold">{{ item.nrocta }}</td>
+                  <td class="px-4 py-3 text-sm font-medium">{{ item.producto_id }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-mono">{{ formatearPrecio(item.precio_actual) }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-mono font-semibold">{{ formatearPrecio(item.precio_nuevo) }}</td>
+                  <td class="px-4 py-3 text-sm text-right font-mono font-bold"
+                      :class="item.diferencia > 0 ? 'text-green-600' : item.diferencia < 0 ? 'text-red-600' : 'text-gray-600'">
+                    {{ item.diferencia > 0 ? '+' : '' }}{{ formatearPrecio(item.diferencia) }}
+                  </td>
+                  <td class="px-4 py-3 text-sm text-right font-semibold"
+                      :class="item.diferencia > 0 ? 'text-green-600' : item.diferencia < 0 ? 'text-red-600' : 'text-gray-600'">
+                    {{ item.porcentaje_cambio > 0 ? '+' : '' }}{{ item.porcentaje_cambio }}%
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer con botones -->
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+            <button 
+              @click="cancelarCambiosPrecios"
+              class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <span>Cancelar</span>
+              </div>
+            </button>
+            <button 
+              @click="confirmarCambiosPrecios"
+              :disabled="procesandoExcel"
+              class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div class="flex items-center space-x-2">
+                <svg v-if="procesandoExcel" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span>{{ procesandoExcel ? 'Aplicando...' : 'Confirmar y Aplicar Cambios' }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
   </div> <!-- Cierre del div raíz con ola -->
 </template>
 
@@ -686,6 +840,11 @@ const errorExcel = ref(null);
 const procesandoExcel = ref(false);
 const mostrandoCarga = ref(false);
 const inputArchivo = ref(null);
+
+// Estado para comparación y confirmación
+const datosComparacion = ref([]);
+const modalConfirmacionAbierto = ref(false);
+const cargandoComparacion = ref(false);
 
 // Filtros
 const filtros = reactive({
@@ -751,7 +910,7 @@ const onDrop = (event) => {
   }
 };
 
-const procesarArchivoExcel = (file) => {
+const procesarArchivoExcel = async (file) => {
   errorExcel.value = null;
   
   // Validar que sea un archivo Excel
@@ -764,7 +923,7 @@ const procesarArchivoExcel = (file) => {
 
   const reader = new FileReader();
   
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
@@ -816,6 +975,11 @@ const procesarArchivoExcel = (file) => {
       }
 
       datosExcelProcesados.value = datosValidados;
+      
+      // Si es modo modificar, obtener precios actuales para mostrar en la tabla
+      if (modoExcel.value === 'modificar') {
+        await cargarPreciosActualesParaVistaPrevia();
+      }
       
     } catch (err) {
       console.error('Error al procesar Excel:', err);
@@ -965,39 +1129,82 @@ const normalizarPrecio = (valor) => {
 const aplicarOperacionExcel = async () => {
   if (datosExcelProcesados.value.length === 0) return;
 
-  // Confirmación
-  const accion = modoExcel.value === 'modificar' ? 'modificar' : 'eliminar';
-  const cantidad = datosExcelProcesados.value.length;
-  const mensaje = modoExcel.value === 'modificar'
-    ? `¿Está seguro que desea modificar ${cantidad} precios especiales?`
-    : `¿Está seguro que desea eliminar ${cantidad} registros de clientes con descuentos? Esta acción no se puede deshacer.`;
+  // Si es modo eliminar, usar flujo anterior (sin comparación)
+  if (modoExcel.value === 'eliminar') {
+    const cantidad = datosExcelProcesados.value.length;
+    const mensaje = `¿Está seguro que desea eliminar ${cantidad} registros de clientes con descuentos? Esta acción no se puede deshacer.`;
 
-  if (!confirm(mensaje)) return;
+    if (!confirm(mensaje)) return;
 
-  procesandoExcel.value = true;
-  mostrandoCarga.value = true;
-  errorExcel.value = null;
+    procesandoExcel.value = true;
+    mostrandoCarga.value = true;
+    errorExcel.value = null;
 
-  try {
-    if (modoExcel.value === 'modificar') {
-      await clientesPreciosService.setPreciosEspecialesCliente(datosExcelProcesados.value);
-      alert(`✓ ${cantidad} precios especiales actualizados correctamente`);
-    } else {
+    try {
       await clientesPreciosService.deletePreciosEspecialesCliente(datosExcelProcesados.value);
       alert(`✓ ${cantidad} registros eliminados correctamente`);
-    }
 
-    // Cerrar modal y recargar datos
+      // Cerrar modal y recargar datos
+      cerrarModalExcel();
+      await cargarClientes({ page: paginacion.value?.current_page || 1 });
+
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+      errorExcel.value = err.message || 'Error al procesar la operación';
+      alert('❌ Error: ' + errorExcel.value);
+    } finally {
+      procesandoExcel.value = false;
+      mostrandoCarga.value = false;
+    }
+    return;
+  }
+
+  // NUEVO FLUJO PARA MODIFICAR PRECIOS
+  try {
+    cargandoComparacion.value = true;
+    errorExcel.value = null;
+
+    // Obtener precios actuales usando el endpoint existente
+    const promesas = datosExcelProcesados.value.map(item => 
+      clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
+    );
+
+    const respuestas = await Promise.all(promesas);
+
+    // Combinar datos: Excel + Precios actuales
+    datosComparacion.value = datosExcelProcesados.value.map((item, index) => {
+      const respuesta = respuestas[index];
+      
+      // Buscar el producto específico en la respuesta
+      const clienteActual = respuesta?.data?.find(
+        c => String(c.nrocta) === String(item.nrocta) && 
+             String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
+      );
+
+      const precioActual = clienteActual ? parseFloat(clienteActual.precioReal) : 0;
+      const precioNuevo = item.precio_especial;
+      const diferencia = precioNuevo - precioActual;
+
+      return {
+        nrocta: item.nrocta,
+        producto_id: item.producto_id,
+        precio_actual: precioActual,
+        precio_nuevo: precioNuevo,
+        diferencia: diferencia,
+        porcentaje_cambio: precioActual > 0 ? ((diferencia / precioActual) * 100).toFixed(2) : 0
+      };
+    });
+
+    // Cerrar modal de carga y mostrar modal de confirmación
     cerrarModalExcel();
-    await cargarClientes({ page: paginacion.value?.current_page || 1 });
+    modalConfirmacionAbierto.value = true;
 
   } catch (err) {
-    console.error('Error en operación Excel:', err);
-    errorExcel.value = err.message || 'Error al procesar la operación';
+    console.error('Error al obtener precios actuales:', err);
+    errorExcel.value = err.message || 'Error al obtener precios actuales';
     alert('❌ Error: ' + errorExcel.value);
   } finally {
-    procesandoExcel.value = false;
-    mostrandoCarga.value = false;
+    cargandoComparacion.value = false;
   }
 };
 
@@ -1101,6 +1308,226 @@ const eliminarClienteIndividual = async (nrocta, producto_id) => {
     alert('❌ Error: ' + (err.message || 'Error al eliminar el precio especial'));
   } finally {
     cargando.value = false;
+  }
+};
+
+// Generar Excel de comparación
+const generarExcelComparacion = async () => {
+  try {
+    // Crear workbook
+    const wb = XLSX.utils.book_new();
+
+    // Preparar datos para el Excel
+    const datosParaExcel = datosComparacion.value.map(item => ({
+      'NroCta': item.nrocta,
+      'IdProducto': item.producto_id,
+      'Precio Actual': item.precio_actual,
+      'Precio Nuevo': item.precio_nuevo,
+      'Diferencia': item.diferencia,
+      'Cambio %': item.porcentaje_cambio + '%'
+    }));
+
+    // Crear worksheet
+    const ws = XLSX.utils.json_to_sheet(datosParaExcel);
+
+    // Ajustar ancho de columnas
+    ws['!cols'] = [
+      { wch: 12 }, // NroCta
+      { wch: 15 }, // IdProducto
+      { wch: 15 }, // Precio Actual
+      { wch: 15 }, // Precio Nuevo
+      { wch: 15 }, // Diferencia
+      { wch: 12 }  // Cambio %
+    ];
+
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Comparación');
+
+    // Generar nombre de archivo con fecha
+    const fecha = new Date().toISOString().split('T')[0];
+    const nombreArchivo = `comparacion_precios_${fecha}.xlsx`;
+
+    // Descargar archivo
+    XLSX.writeFile(wb, nombreArchivo);
+
+    console.log('Excel de comparación generado:', nombreArchivo);
+  } catch (err) {
+    console.error('Error al generar Excel de comparación:', err);
+    throw new Error('Error al generar Excel de comparación');
+  }
+};
+
+// Confirmar cambios de precios
+const confirmarCambiosPrecios = async () => {
+  try {
+    procesandoExcel.value = true;
+    mostrandoCarga.value = true;
+
+    // Preparar datos para enviar al backend
+    const preciosParaActualizar = datosComparacion.value.map(item => ({
+      nrocta: item.nrocta,
+      producto_id: item.producto_id,
+      precio_especial: item.precio_nuevo
+    }));
+
+    await clientesPreciosService.setPreciosEspecialesCliente(preciosParaActualizar);
+
+    alert(`✓ ${preciosParaActualizar.length} precios especiales actualizados correctamente`);
+
+    // Cerrar modales y recargar datos
+    cancelarCambiosPrecios();
+    await cargarClientes({ page: paginacion.value?.current_page || 1 });
+
+  } catch (err) {
+    console.error('Error al confirmar cambios:', err);
+    alert('❌ Error: ' + (err.message || 'Error al actualizar precios'));
+  } finally {
+    procesandoExcel.value = false;
+    mostrandoCarga.value = false;
+  }
+};
+
+// Cancelar cambios de precios
+const cancelarCambiosPrecios = () => {
+  modalConfirmacionAbierto.value = false;
+  datosComparacion.value = [];
+  datosExcelProcesados.value = [];
+};
+
+// Cargar precios actuales para vista previa
+const cargarPreciosActualesParaVistaPrevia = async () => {
+  try {
+    cargandoComparacion.value = true;
+
+    // Obtener precios actuales usando el endpoint existente
+    const promesas = datosExcelProcesados.value.map(item => 
+      clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
+    );
+
+    const respuestas = await Promise.all(promesas);
+
+    // Actualizar datosExcelProcesados con los precios actuales
+    datosExcelProcesados.value = datosExcelProcesados.value.map((item, index) => {
+      const respuesta = respuestas[index];
+      
+      // Buscar el producto específico en la respuesta
+      const clienteActual = respuesta?.data?.find(
+        c => String(c.nrocta) === String(item.nrocta) && 
+             String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
+      );
+
+      return {
+        ...item,
+        precio_lista_actual: clienteActual ? parseFloat(clienteActual.precioReal) : 0
+      };
+    });
+
+  } catch (err) {
+    console.error('Error al cargar precios actuales:', err);
+    errorExcel.value = 'Error al obtener precios actuales: ' + err.message;
+  } finally {
+    cargandoComparacion.value = false;
+  }
+};
+
+// Exportar vista previa a Excel (con precios actuales)
+const exportarVistaPreviaExcel = async () => {
+  try {
+    cargandoComparacion.value = true;
+
+    // Preparar datos según el modo
+    let datosParaExcel;
+    
+    if (modoExcel.value === 'modificar') {
+      // Obtener precios actuales usando el endpoint existente
+      const promesas = datosExcelProcesados.value.map(item => 
+        clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
+      );
+
+      const respuestas = await Promise.all(promesas);
+
+      // Combinar datos con precios actuales
+      datosParaExcel = datosExcelProcesados.value.map((item, index) => {
+        const respuesta = respuestas[index];
+        
+        // Buscar el producto específico en la respuesta
+        const clienteActual = respuesta?.data?.find(
+          c => String(c.nrocta) === String(item.nrocta) && 
+               String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
+        );
+
+        const precioActual = clienteActual ? parseFloat(clienteActual.precioReal) : 0;
+        const precioNuevo = item.precio_especial;
+        const diferencia = precioNuevo - precioActual;
+
+        return {
+          'NroCta': item.nrocta,
+          'IdProducto': item.producto_id,
+          'Precio Real Actual': precioActual,
+          'Precio Nuevo': precioNuevo,
+          'Diferencia': diferencia
+        };
+      });
+    } else {
+      // Modo eliminar
+      datosParaExcel = datosExcelProcesados.value.map(item => ({
+        'NroCta': item.nrocta,
+        'IdProducto': item.producto_id
+      }));
+    }
+
+    // Crear workbook
+    const wb = XLSX.utils.book_new();
+
+    // Crear worksheet
+    const ws = XLSX.utils.json_to_sheet(datosParaExcel);
+
+    // Ajustar ancho de columnas
+    ws['!cols'] = modoExcel.value === 'modificar' 
+      ? [
+          { wch: 12 }, // NroCta
+          { wch: 15 }, // IdProducto
+          { wch: 18 }, // Precio Lista Actual
+          { wch: 15 }, // Precio Nuevo
+          { wch: 15 }  // Diferencia
+        ]
+      : [
+          { wch: 12 }, // NroCta
+          { wch: 15 }  // IdProducto
+        ];
+
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Vista Previa');
+
+    // Generar nombre de archivo con fecha y hora
+    const fecha = new Date().toISOString().split('T')[0];
+    const hora = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
+    const accion = modoExcel.value === 'modificar' ? 'modificar' : 'eliminar';
+    const nombreArchivo = `vista_previa_${accion}_${fecha}_${hora}.xlsx`;
+
+    // Descargar archivo
+    XLSX.writeFile(wb, nombreArchivo);
+
+    console.log('Vista previa exportada:', nombreArchivo);
+    
+    // Mostrar mensaje de éxito
+    mensajeGuardado.value = {
+      tipo: 'success',
+      texto: 'Vista previa exportada correctamente'
+    };
+    
+    setTimeout(() => {
+      mensajeGuardado.value = null;
+    }, 3000);
+    
+  } catch (err) {
+    console.error('Error al exportar vista previa:', err);
+    mensajeGuardado.value = {
+      tipo: 'error',
+      texto: 'Error al exportar vista previa: ' + err.message
+    };
+  } finally {
+    cargandoComparacion.value = false;
   }
 };
 

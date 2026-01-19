@@ -241,6 +241,30 @@ export const clientesPreciosService = {
       
       throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
     }
+  },
+
+  /**
+   * Obtiene los precios actuales para una lista de clientes-productos
+   * @param {Array} registros - Array de objetos con {nrocta, producto_id}
+   * @returns {Promise} Respuesta con precios actuales
+   */
+  async getPreciosActualesClientes(registros) {
+    try {
+      const response = await api.post(ENDPOINTS.CAMBIO_PRECIOS.OBTENER_PRECIOS_ACTUALES, {
+        data: registros
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener precios actuales:', error);
+      
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || 'Error al obtener precios actuales';
+      
+      const errorDetails = error.response?.data?.details || '';
+      
+      throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
+    }
   }
 };
 

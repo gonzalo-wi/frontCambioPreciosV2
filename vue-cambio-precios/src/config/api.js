@@ -38,6 +38,7 @@ export const ENDPOINTS = {
     LISTAS_PRECIOS:                    '/cambio-precios/listas-precios',
     PRECIOS_ESPECIALES_CLIENTE:        '/cambio-precios/set-precios-especiales-cliente',
     DELETE_PRECIOS_ESPECIALES_CLIENTE: '/cambio-precios/delete-precios-especiales-cliente',
+    OBTENER_PRECIOS_ACTUALES:          '/cambio-precios/get-precios-actuales-clientes',
     PROCESAR_EXCEL:                    '/cambio-precios/procesar-excel',
     GENERAR_CAMBIO_MASIVO:             '/cambio-precios/generar-cambio-precios-masivo',
     INSERTAR_NUEVA_LISTA:              '/cambio-precios/insertar-nueva-lista-precio',
