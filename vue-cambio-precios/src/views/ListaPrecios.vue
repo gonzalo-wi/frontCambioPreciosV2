@@ -498,6 +498,7 @@
                         min="0"
                         :value="obtenerPrecioMostrar(item)"
                         @input="(e) => actualizarPrecio(item.idProducto, e.target.value)"
+                        @blur="() => finalizarEdicionPrecio(item.idProducto)"
                         class="w-32 px-2 py-1 text-right border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         :class="{
                           'border-blue-400 bg-blue-50 font-medium text-blue-900': tienePrecioEditado(item.idProducto),
@@ -1347,6 +1348,8 @@ const listaSeleccionada = ref(null);
 
 // Estado para edición de precios
 const preciosEditados = ref(new Map()); // Map<idProducto, nuevoPrecio>
+// Mantiene el valor crudo del input mientras se escribe (permite string vacío)
+const preciosEditadosInput = ref({}); // Record<string, string>
 const guardandoCambios = ref(false);
 const mensajeModal = ref(null); // { tipo: 'success' | 'error', texto: '' }
 
@@ -1541,6 +1544,7 @@ const verDetalles = (lista) => {
   listaSeleccionada.value = lista;
   busquedaModal.value = '';
   preciosEditados.value.clear();
+  preciosEditadosInput.value = {};
   mensajeModal.value = null;
   mostrarSeccionAgregar.value = false;
   productosDisponibles.value = [];
@@ -1551,6 +1555,7 @@ const verDetalles = (lista) => {
 const cerrarModal = () => {
   listaSeleccionada.value = null;
   preciosEditados.value.clear();
+  preciosEditadosInput.value = {};
   mensajeModal.value = null;
   mostrarSeccionAgregar.value = false;
   productosDisponibles.value = [];
@@ -1560,20 +1565,46 @@ const cerrarModal = () => {
 
 // Función para actualizar precio editado
 const actualizarPrecio = (idProducto, nuevoPrecio) => {
-  if (nuevoPrecio === '' || nuevoPrecio === null) {
+  const key = String(idProducto);
+  preciosEditadosInput.value[key] = nuevoPrecio;
+
+  // Mientras el usuario está borrando/escribiendo, permitimos vacío sin “rebotar” al valor original.
+  if (nuevoPrecio === '' || nuevoPrecio === null || nuevoPrecio === undefined) {
     preciosEditados.value.delete(idProducto);
-  } else {
-    preciosEditados.value.set(idProducto, parseFloat(nuevoPrecio));
+    return;
   }
+
+  const parsed = Number(nuevoPrecio);
+  if (!Number.isFinite(parsed)) {
+    preciosEditados.value.delete(idProducto);
+    return;
+  }
+
+  preciosEditados.value.set(idProducto, parsed);
 };
 
 // Función para obtener precio a mostrar (editado o original)
 const obtenerPrecioMostrar = (item) => {
-  const precio = preciosEditados.value.has(item.idProducto) 
-    ? preciosEditados.value.get(item.idProducto) 
+  const key = String(item.idProducto);
+  if (Object.prototype.hasOwnProperty.call(preciosEditadosInput.value, key)) {
+    return preciosEditadosInput.value[key];
+  }
+
+  const precio = preciosEditados.value.has(item.idProducto)
+    ? preciosEditados.value.get(item.idProducto)
     : item.precio;
-  // Convertir a entero sin decimales
-  return Math.round(parseFloat(precio) || 0);
+
+  const numero = Number(precio);
+  return Number.isFinite(numero) ? Math.round(numero) : 0;
+};
+
+// Si el usuario deja el input vacío y sale, se interpreta como “cancelar edición”
+const finalizarEdicionPrecio = (idProducto) => {
+  const key = String(idProducto);
+  if (preciosEditadosInput.value[key] === '') {
+    delete preciosEditadosInput.value[key];
+    preciosEditados.value.delete(idProducto);
+  }
 };
 
 // Función para verificar si un producto tiene precio editado
