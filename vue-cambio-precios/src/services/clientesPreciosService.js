@@ -265,6 +265,35 @@ export const clientesPreciosService = {
       
       throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
     }
+  },
+
+  /**
+   * Obtiene los precios con descuentos de forma masiva para una lista de clientes-productos
+   * @param {Array} registros - Array de objetos con {nrocta, idProducto}
+   * @returns {Promise} Respuesta con precios, descuentos y listas
+   */
+  async getClientesConDescuentosMasivos(registros) {
+    try {
+      // Intentar primero con POST (lo esperado para enviar datos)
+      const response = await api.request({
+        method: 'POST',
+        url: ENDPOINTS.CAMBIO_PRECIOS.CLIENTES_DESCUENTOS_MASIVOS,
+        data: {
+          data: registros
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener precios con descuentos masivos:', error);
+      
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.message 
+        || 'Error al obtener precios con descuentos';
+      
+      const errorDetails = error.response?.data?.details || '';
+      
+      throw new Error(`${errorMessage}${errorDetails ? ': ' + errorDetails : ''}`);
+    }
   }
 };
 

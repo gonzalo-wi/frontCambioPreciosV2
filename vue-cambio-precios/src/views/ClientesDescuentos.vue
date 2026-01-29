@@ -932,34 +932,76 @@ const procesarArchivoExcel = async (file) => {
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       
-      // Convertir a JSON SIN headers (usar array de arrays)
+      // Verificar el rango del worksheet
+      console.log('Rango original del Excel:', worksheet['!ref']);
+      
+      // Forzar el rango completo si es necesario
+      // Obtener el rango actual
+      let range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      console.log('Filas detectadas por XLSX:', range.e.r + 1);
+      console.log('Columnas detectadas por XLSX:', range.e.c + 1);
+      
+      // Buscar la última celda con contenido en la columna A (NROCTA)
+      let ultimaFilaConDatos = range.e.r;
+      for (let r = range.e.r + 1; r <= 50000; r++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: r, c: 0 }); // Columna A
+        if (worksheet[cellAddress]) {
+          ultimaFilaConDatos = r;
+        } else if (r > ultimaFilaConDatos + 100) {
+          // Si no hay datos en 100 filas consecutivas, parar
+          break;
+        }
+      }
+      
+      console.log('Última fila con datos encontrada:', ultimaFilaConDatos + 1);
+      
+      // Forzar el rango completo
+      if (ultimaFilaConDatos > range.e.r) {
+        const nuevoRango = XLSX.utils.encode_range({
+          s: { r: 0, c: 0 },
+          e: { r: ultimaFilaConDatos, c: range.e.c }
+        });
+        worksheet['!ref'] = nuevoRango;
+        console.log('Rango ajustado a:', nuevoRango);
+      }
+      
+      // Convertir a JSON usando los HEADERS del Excel con rango completo
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-        header: 1, // Esto devuelve arrays en lugar de objetos
         raw: false,
-        defval: null 
+        defval: '',
+        blankrows: true
       });
 
-      console.log('Datos Excel parseados (array de arrays):', jsonData);
+      console.log('Datos Excel parseados con headers:', jsonData);
+      console.log('Total de filas en el Excel:', jsonData.length);
+      console.log('Primer registro (para ver las columnas):', jsonData[0]);
+      console.log('Último registro:', jsonData[jsonData.length - 1]);
+      console.log('Claves detectadas:', jsonData[0] ? Object.keys(jsonData[0]) : 'No hay datos');
 
-      // Saltar la primera fila (encabezados) y convertir a objetos con estructura conocida
-      const datosConvertidos = jsonData.slice(1).filter(row => {
-        // Filtrar filas vacías
-        return row && row.length > 0 && (row[0] || row[1] || row[2]);
-      }).map(row => {
+      // Convertir TODAS las filas sin filtrar (temporalmente para debug)
+      const datosConvertidos = jsonData.map((row, index) => {
+        // Buscar las columnas por nombres
+        const nrocta = row['nrocta'] || row['NroCta'] || row['Nrocta'] || row['NROCTA'] || row['Numero'] || row['Cuenta'];
+        const producto = row['producto_id'] || row['idProducto'] || row['IdProducto'] || row['producto'] || row['Producto'] || row['PRODUCTO'] || row['IDPRODUCTO'];
+        
         const obj = {
-          nrocta: row[0],  // Columna A
-          producto_id: row[1], // Columna B
+          nrocta: nrocta,
+          producto_id: producto,
         };
         
         // Solo agregar precio si es modo modificar
         if (modoExcel.value === 'modificar') {
-          obj.precio = row[2]; // Columna C
+          const precio = row['precio'] || row['Precio'] || row['PRECIO'] || row['precio_especial'] || row['PrecioEspecial'] || row['Precio Final'] || row['PrecioFinal'] || row['precio_final'];
+          obj.precio = precio;
         }
         
         return obj;
       });
 
-      console.log('Datos convertidos:', datosConvertidos);
+      console.log('Total de filas leídas del Excel:', jsonData.length);
+      console.log('Total de registros convertidos (sin filtrar):', datosConvertidos.length);
+      console.log('Ejemplo de registro convertido:', datosConvertidos[0]);
+      console.log('Último registro convertido:', datosConvertidos[datosConvertidos.length - 1]);
 
       if (datosConvertidos.length === 0) {
         errorExcel.value = 'El archivo Excel está vacío o no tiene datos válidos';
@@ -976,10 +1018,8 @@ const procesarArchivoExcel = async (file) => {
 
       datosExcelProcesados.value = datosValidados;
       
-      // Si es modo modificar, obtener precios actuales para mostrar en la tabla
-      if (modoExcel.value === 'modificar') {
-        await cargarPreciosActualesParaVistaPrevia();
-      }
+      // Mostrar mensaje de éxito con cantidad de registros procesados
+      console.log(`Excel procesado: ${datosValidados.length} registros válidos`);
       
     } catch (err) {
       console.error('Error al procesar Excel:', err);
@@ -1031,10 +1071,10 @@ const validarDatosExcel = (datos) => {
     if (modoExcel.value === 'modificar') {
       const precio = row.precio;
       
-      console.log(`Línea ${linea} - precio:`, precio);
+      console.log(`Línea ${linea} - precio:`, precio, `tipo:`, typeof precio);
       
       if (!precio && precio !== 0) {
-        errores.push(`Línea ${linea}: Falta 'precio' en columna C`);
+        errores.push(`Línea ${linea}: Falta 'precio' en columna de precio`);
         return;
       }
 
@@ -1044,7 +1084,12 @@ const validarDatosExcel = (datos) => {
       console.log(`Línea ${linea} - precio normalizado:`, precioNormalizado);
       
       if (precioNormalizado === null || isNaN(precioNormalizado)) {
-        errores.push(`Línea ${linea}: Precio inválido '${precio}'`);
+        errores.push(`Línea ${linea}: Precio inválido '${precio}' - debe ser un número válido`);
+        return;
+      }
+
+      if (precioNormalizado < 0) {
+        errores.push(`Línea ${linea}: Precio negativo '${precio}' - debe ser mayor o igual a 0`);
         return;
       }
 
@@ -1060,14 +1105,28 @@ const validarDatosExcel = (datos) => {
   console.log('Datos válidos encontrados:', datosValidos.length);
   
   if (errores.length > 0) {
-    const mensajeErrores = errores.slice(0, 5).join('\n');
-    const masErrores = errores.length > 5 ? `\n... y ${errores.length - 5} errores más` : '';
+    const mensajeErrores = errores.slice(0, 10).join('\n');
+    const masErrores = errores.length > 10 ? `\n... y ${errores.length - 10} errores más` : '';
     
     if (datosValidos.length === 0) {
-      errorExcel.value = 'Errores encontrados:\n' + mensajeErrores + masErrores;
+      // No hay datos válidos, mostrar error completo
+      errorExcel.value = `Se encontraron ${errores.length} errores en el archivo:\n\n` + mensajeErrores + masErrores + '\n\nVerifique que:\n- La columna C contenga solo valores numéricos\n- No haya columnas adicionales mezcladas\n- El formato del Excel sea correcto';
     } else {
       // Hay algunos válidos, mostrar advertencia
       console.warn(`Se encontraron ${errores.length} errores pero ${datosValidos.length} registros válidos`);
+      
+      // Preguntar al usuario si quiere continuar
+      const continuar = confirm(
+        `⚠️ ADVERTENCIA\n\n` +
+        `Se encontraron ${errores.length} filas con errores y ${datosValidos.length} filas válidas.\n\n` +
+        `Primeros errores:\n${mensajeErrores}${masErrores}\n\n` +
+        `¿Desea continuar solo con los registros válidos?`
+      );
+      
+      if (!continuar) {
+        errorExcel.value = 'Operación cancelada por el usuario';
+        return [];
+      }
     }
   }
 
@@ -1129,9 +1188,10 @@ const normalizarPrecio = (valor) => {
 const aplicarOperacionExcel = async () => {
   if (datosExcelProcesados.value.length === 0) return;
 
-  // Si es modo eliminar, usar flujo anterior (sin comparación)
+  const cantidad = datosExcelProcesados.value.length;
+  
+  // Modo ELIMINAR
   if (modoExcel.value === 'eliminar') {
-    const cantidad = datosExcelProcesados.value.length;
     const mensaje = `¿Está seguro que desea eliminar ${cantidad} registros de clientes con descuentos? Esta acción no se puede deshacer.`;
 
     if (!confirm(mensaje)) return;
@@ -1159,52 +1219,39 @@ const aplicarOperacionExcel = async () => {
     return;
   }
 
-  // NUEVO FLUJO PARA MODIFICAR PRECIOS
+  // Modo MODIFICAR - Enviar directamente al backend
+  const mensaje = `¿Está seguro que desea modificar ${cantidad} precios especiales?`;
+  if (!confirm(mensaje)) return;
+
+  procesandoExcel.value = true;
+  mostrandoCarga.value = true;
+  errorExcel.value = null;
+
   try {
-    cargandoComparacion.value = true;
-    errorExcel.value = null;
+    // Preparar datos para enviar al backend
+    const preciosParaActualizar = datosExcelProcesados.value.map(item => ({
+      nrocta: parseInt(item.nrocta),
+      producto_id: item.producto_id,
+      precio_especial: item.precio_especial
+    }));
 
-    // Obtener precios actuales usando el endpoint existente
-    const promesas = datosExcelProcesados.value.map(item => 
-      clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
-    );
+    console.log('Enviando precios al backend:', preciosParaActualizar);
 
-    const respuestas = await Promise.all(promesas);
+    await clientesPreciosService.setPreciosEspecialesCliente(preciosParaActualizar);
 
-    // Combinar datos: Excel + Precios actuales
-    datosComparacion.value = datosExcelProcesados.value.map((item, index) => {
-      const respuesta = respuestas[index];
-      
-      // Buscar el producto específico en la respuesta
-      const clienteActual = respuesta?.data?.find(
-        c => String(c.nrocta) === String(item.nrocta) && 
-             String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
-      );
+    alert(`✓ ${cantidad} precios especiales actualizados correctamente`);
 
-      const precioActual = clienteActual ? parseFloat(clienteActual.precioReal) : 0;
-      const precioNuevo = item.precio_especial;
-      const diferencia = precioNuevo - precioActual;
-
-      return {
-        nrocta: item.nrocta,
-        producto_id: item.producto_id,
-        precio_actual: precioActual,
-        precio_nuevo: precioNuevo,
-        diferencia: diferencia,
-        porcentaje_cambio: precioActual > 0 ? ((diferencia / precioActual) * 100).toFixed(2) : 0
-      };
-    });
-
-    // Cerrar modal de carga y mostrar modal de confirmación
+    // Cerrar modal y recargar datos
     cerrarModalExcel();
-    modalConfirmacionAbierto.value = true;
+    await cargarClientes({ page: paginacion.value?.current_page || 1 });
 
   } catch (err) {
-    console.error('Error al obtener precios actuales:', err);
-    errorExcel.value = err.message || 'Error al obtener precios actuales';
+    console.error('Error al actualizar precios:', err);
+    errorExcel.value = err.message || 'Error al actualizar precios';
     alert('❌ Error: ' + errorExcel.value);
   } finally {
-    cargandoComparacion.value = false;
+    procesandoExcel.value = false;
+    mostrandoCarga.value = false;
   }
 };
 
@@ -1308,226 +1355,6 @@ const eliminarClienteIndividual = async (nrocta, producto_id) => {
     alert('❌ Error: ' + (err.message || 'Error al eliminar el precio especial'));
   } finally {
     cargando.value = false;
-  }
-};
-
-// Generar Excel de comparación
-const generarExcelComparacion = async () => {
-  try {
-    // Crear workbook
-    const wb = XLSX.utils.book_new();
-
-    // Preparar datos para el Excel
-    const datosParaExcel = datosComparacion.value.map(item => ({
-      'NroCta': item.nrocta,
-      'IdProducto': item.producto_id,
-      'Precio Actual': item.precio_actual,
-      'Precio Nuevo': item.precio_nuevo,
-      'Diferencia': item.diferencia,
-      'Cambio %': item.porcentaje_cambio + '%'
-    }));
-
-    // Crear worksheet
-    const ws = XLSX.utils.json_to_sheet(datosParaExcel);
-
-    // Ajustar ancho de columnas
-    ws['!cols'] = [
-      { wch: 12 }, // NroCta
-      { wch: 15 }, // IdProducto
-      { wch: 15 }, // Precio Actual
-      { wch: 15 }, // Precio Nuevo
-      { wch: 15 }, // Diferencia
-      { wch: 12 }  // Cambio %
-    ];
-
-    // Agregar worksheet al workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Comparación');
-
-    // Generar nombre de archivo con fecha
-    const fecha = new Date().toISOString().split('T')[0];
-    const nombreArchivo = `comparacion_precios_${fecha}.xlsx`;
-
-    // Descargar archivo
-    XLSX.writeFile(wb, nombreArchivo);
-
-    console.log('Excel de comparación generado:', nombreArchivo);
-  } catch (err) {
-    console.error('Error al generar Excel de comparación:', err);
-    throw new Error('Error al generar Excel de comparación');
-  }
-};
-
-// Confirmar cambios de precios
-const confirmarCambiosPrecios = async () => {
-  try {
-    procesandoExcel.value = true;
-    mostrandoCarga.value = true;
-
-    // Preparar datos para enviar al backend
-    const preciosParaActualizar = datosComparacion.value.map(item => ({
-      nrocta: item.nrocta,
-      producto_id: item.producto_id,
-      precio_especial: item.precio_nuevo
-    }));
-
-    await clientesPreciosService.setPreciosEspecialesCliente(preciosParaActualizar);
-
-    alert(`✓ ${preciosParaActualizar.length} precios especiales actualizados correctamente`);
-
-    // Cerrar modales y recargar datos
-    cancelarCambiosPrecios();
-    await cargarClientes({ page: paginacion.value?.current_page || 1 });
-
-  } catch (err) {
-    console.error('Error al confirmar cambios:', err);
-    alert('❌ Error: ' + (err.message || 'Error al actualizar precios'));
-  } finally {
-    procesandoExcel.value = false;
-    mostrandoCarga.value = false;
-  }
-};
-
-// Cancelar cambios de precios
-const cancelarCambiosPrecios = () => {
-  modalConfirmacionAbierto.value = false;
-  datosComparacion.value = [];
-  datosExcelProcesados.value = [];
-};
-
-// Cargar precios actuales para vista previa
-const cargarPreciosActualesParaVistaPrevia = async () => {
-  try {
-    cargandoComparacion.value = true;
-
-    // Obtener precios actuales usando el endpoint existente
-    const promesas = datosExcelProcesados.value.map(item => 
-      clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
-    );
-
-    const respuestas = await Promise.all(promesas);
-
-    // Actualizar datosExcelProcesados con los precios actuales
-    datosExcelProcesados.value = datosExcelProcesados.value.map((item, index) => {
-      const respuesta = respuestas[index];
-      
-      // Buscar el producto específico en la respuesta
-      const clienteActual = respuesta?.data?.find(
-        c => String(c.nrocta) === String(item.nrocta) && 
-             String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
-      );
-
-      return {
-        ...item,
-        precio_lista_actual: clienteActual ? parseFloat(clienteActual.precioReal) : 0
-      };
-    });
-
-  } catch (err) {
-    console.error('Error al cargar precios actuales:', err);
-    errorExcel.value = 'Error al obtener precios actuales: ' + err.message;
-  } finally {
-    cargandoComparacion.value = false;
-  }
-};
-
-// Exportar vista previa a Excel (con precios actuales)
-const exportarVistaPreviaExcel = async () => {
-  try {
-    cargandoComparacion.value = true;
-
-    // Preparar datos según el modo
-    let datosParaExcel;
-    
-    if (modoExcel.value === 'modificar') {
-      // Obtener precios actuales usando el endpoint existente
-      const promesas = datosExcelProcesados.value.map(item => 
-        clientesPreciosService.buscarClientePorCuenta(item.nrocta, { per_page: 100 })
-      );
-
-      const respuestas = await Promise.all(promesas);
-
-      // Combinar datos con precios actuales
-      datosParaExcel = datosExcelProcesados.value.map((item, index) => {
-        const respuesta = respuestas[index];
-        
-        // Buscar el producto específico en la respuesta
-        const clienteActual = respuesta?.data?.find(
-          c => String(c.nrocta) === String(item.nrocta) && 
-               String(c.idproducto).toUpperCase() === String(item.producto_id).toUpperCase()
-        );
-
-        const precioActual = clienteActual ? parseFloat(clienteActual.precioReal) : 0;
-        const precioNuevo = item.precio_especial;
-        const diferencia = precioNuevo - precioActual;
-
-        return {
-          'NroCta': item.nrocta,
-          'IdProducto': item.producto_id,
-          'Precio Real Actual': precioActual,
-          'Precio Nuevo': precioNuevo,
-          'Diferencia': diferencia
-        };
-      });
-    } else {
-      // Modo eliminar
-      datosParaExcel = datosExcelProcesados.value.map(item => ({
-        'NroCta': item.nrocta,
-        'IdProducto': item.producto_id
-      }));
-    }
-
-    // Crear workbook
-    const wb = XLSX.utils.book_new();
-
-    // Crear worksheet
-    const ws = XLSX.utils.json_to_sheet(datosParaExcel);
-
-    // Ajustar ancho de columnas
-    ws['!cols'] = modoExcel.value === 'modificar' 
-      ? [
-          { wch: 12 }, // NroCta
-          { wch: 15 }, // IdProducto
-          { wch: 18 }, // Precio Lista Actual
-          { wch: 15 }, // Precio Nuevo
-          { wch: 15 }  // Diferencia
-        ]
-      : [
-          { wch: 12 }, // NroCta
-          { wch: 15 }  // IdProducto
-        ];
-
-    // Agregar worksheet al workbook
-    XLSX.utils.book_append_sheet(wb, ws, 'Vista Previa');
-
-    // Generar nombre de archivo con fecha y hora
-    const fecha = new Date().toISOString().split('T')[0];
-    const hora = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-    const accion = modoExcel.value === 'modificar' ? 'modificar' : 'eliminar';
-    const nombreArchivo = `vista_previa_${accion}_${fecha}_${hora}.xlsx`;
-
-    // Descargar archivo
-    XLSX.writeFile(wb, nombreArchivo);
-
-    console.log('Vista previa exportada:', nombreArchivo);
-    
-    // Mostrar mensaje de éxito
-    mensajeGuardado.value = {
-      tipo: 'success',
-      texto: 'Vista previa exportada correctamente'
-    };
-    
-    setTimeout(() => {
-      mensajeGuardado.value = null;
-    }, 3000);
-    
-  } catch (err) {
-    console.error('Error al exportar vista previa:', err);
-    mensajeGuardado.value = {
-      tipo: 'error',
-      texto: 'Error al exportar vista previa: ' + err.message
-    };
-  } finally {
-    cargandoComparacion.value = false;
   }
 };
 

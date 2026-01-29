@@ -35,6 +35,7 @@ export const getAmbienteParam = () => {
 export const ENDPOINTS = {
   CAMBIO_PRECIOS: {
     CLIENTES_DESCUENTO:                '/cambio-precios/get-clientes-con-descuento',
+    CLIENTES_DESCUENTOS_MASIVOS:       '/cambio-precios/get-clientes-con-descuentos-masivos',
     LISTAS_PRECIOS:                    '/cambio-precios/listas-precios',
     PRECIOS_ESPECIALES_CLIENTE:        '/cambio-precios/set-precios-especiales-cliente',
     DELETE_PRECIOS_ESPECIALES_CLIENTE: '/cambio-precios/delete-precios-especiales-cliente',
