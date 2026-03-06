@@ -978,27 +978,167 @@ const procesarArchivoExcel = async (file) => {
       console.log('Último registro:', jsonData[jsonData.length - 1]);
       console.log('Claves detectadas:', jsonData[0] ? Object.keys(jsonData[0]) : 'No hay datos');
 
-      // Convertir TODAS las filas sin filtrar (temporalmente para debug)
-      const datosConvertidos = jsonData.map((row, index) => {
-        // Buscar las columnas por nombres
-        const nrocta = row['nrocta'] || row['NroCta'] || row['Nrocta'] || row['NROCTA'] || row['Numero'] || row['Cuenta'];
-        const producto = row['producto_id'] || row['idProducto'] || row['IdProducto'] || row['producto'] || row['Producto'] || row['PRODUCTO'] || row['IDPRODUCTO'];
+      // Función helper para normalizar nombres de columna
+      const normalizarNombreColumna = (nombre) => {
+        if (!nombre) return '';
+        return String(nombre).toLowerCase().trim();
+      };
+
+      // Crear un mapa normalizado de las columnas
+      const crearMapaNormalizado = (row) => {
+        const mapa = {};
+        Object.keys(row).forEach(key => {
+          const keyNormalizada = normalizarNombreColumna(key);
+          mapa[keyNormalizada] = row[key];
+        });
+        return mapa;
+      };
+
+      // Función helper para buscar valor en múltiples nombres de columna
+      const buscarValorColumna = (rowNormalizado, nombresPosibles) => {
+        for (const nombre of nombresPosibles) {
+          const nombreNormalizado = normalizarNombreColumna(nombre);
+          if (rowNormalizado[nombreNormalizado] !== undefined && rowNormalizado[nombreNormalizado] !== '') {
+            return rowNormalizado[nombreNormalizado];
+          }
+        }
+        return undefined;
+      };
+      
+      // Detectar si el archivo no tiene headers válidos
+      const primeraFilaKeys = jsonData[0] ? Object.keys(jsonData[0]) : [];
+      const tieneHeadersInvalidos = primeraFilaKeys.some(key => 
+        key.toLowerCase().includes('etiqueta') || 
+        key.toLowerCase().includes('__empty')
+      );
+      
+      console.log('¿Headers inválidos detectados?', tieneHeadersInvalidos, 'Keys:', primeraFilaKeys);
+      
+      // Si tiene headers inválidos, recargar sin headers (usar índices)
+      let jsonDataFinal = jsonData;
+      if (tieneHeadersInvalidos) {
+        console.log('Recargando Excel sin headers...');
+        jsonDataFinal = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1, // Usar array de arrays en lugar de objetos
+          raw: false,
+          defval: '',
+          blankrows: true
+        });
+        
+        // Eliminar la primera fila si es el header
+        if (jsonDataFinal.length > 0 && jsonDataFinal[0]) {
+          const primeraFila = jsonDataFinal[0];
+          const esHeader = primeraFila.some(cell => 
+            String(cell).toLowerCase().includes('nrocta') || 
+            String(cell).toLowerCase().includes('producto') ||
+            String(cell).toLowerCase().includes('etiqueta')
+          );
+          if (esHeader) {
+            jsonDataFinal.shift(); // Eliminar el header
+          }
+        }
+        
+        console.log('Datos recargados sin headers:', jsonDataFinal.slice(0, 5));
+        console.log('Total de filas sin header:', jsonDataFinal.length);
+      }
+
+      // Convertir TODAS las filas sin filtrar
+      const datosConvertidos = jsonDataFinal.map((row, index) => {
+        let nrocta, producto, lista_id, precio;
+        
+        // Si es array (sin headers), usar índices de columna
+        if (Array.isArray(row)) {
+          // Detectar si solo hay una columna con datos
+          const columnasConDatos = row.filter(cell => cell !== null && cell !== undefined && cell !== '').length;
+          
+          if (columnasConDatos === 1 && modoExcel.value === 'eliminar') {
+            // Si hay solo una columna en modo eliminar, asumir que son nrocta
+            nrocta = row[0]; // Columna A es nrocta
+            producto = null; // No hay producto específico, eliminar todos los productos de este cliente
+            lista_id = null;
+            
+            if (index < 5) {
+              console.log(`Fila ${index + 2} (una sola columna) - nrocta: ${nrocta} (eliminar todos los productos)`);
+            }
+          } else {
+            // Formato normal: columna A = nrocta, B = producto_id, etc.
+            nrocta = row[0]; // Columna A
+            producto = row[1]; // Columna B
+            lista_id = row[2] || null; // Columna C (opcional)
+            
+            if (modoExcel.value === 'modificar') {
+              // Buscar precio en columna C o D dependiendo si hay lista_id
+              precio = row[2]; // Intentar primero columna C
+              if (!precio || precio === '') {
+                precio = row[3]; // Si no, columna D
+              }
+            }
+            
+            // Solo mostrar logs para las primeras 5 filas
+            if (index < 5) {
+              console.log(`Fila ${index + 2} (sin headers) - Array:`, row);
+              console.log(`Fila ${index + 2} - nrocta: ${nrocta}, producto_id: ${producto}, lista_id: ${lista_id || 'null'}${modoExcel.value === 'modificar' ? `, precio: ${precio}` : ''}`);
+            }
+          }
+        } else {
+          // Es objeto (con headers), usar búsqueda por nombre
+          const rowNormalizado = crearMapaNormalizado(row);
+          
+          // Solo mostrar logs para las primeras 5 filas
+          if (index < 5) {
+            console.log(`Fila ${index + 2} - Keys originales:`, Object.keys(row));
+            console.log(`Fila ${index + 2} - Keys normalizadas:`, Object.keys(rowNormalizado));
+            console.log(`Fila ${index + 2} - Row normalizado:`, rowNormalizado);
+          }
+          
+          // Buscar las columnas por múltiples nombres posibles
+          nrocta = buscarValorColumna(rowNormalizado, [
+            'nrocta', 'nro_cta', 'nrocuenta', 'nro_cuenta', 'numero_cuenta', 
+            'cuenta', 'numero', 'numerocta', 'cta', 'client_id', 'cliente_id',
+            'etiquetas de fila', 'etiqueta de fila', 'etiqueta'
+          ]);
+          
+          producto = buscarValorColumna(rowNormalizado, [
+            'producto_id', 'productoid', 'producto', 'id_producto', 'idproducto',
+            'cod_producto', 'codigo_producto', 'codigoproducto', 'product_id'
+          ]);
+          
+          // Buscar lista_id si existe (opcional)
+          lista_id = buscarValorColumna(rowNormalizado, [
+            'lista_id', 'listaid', 'id_lista', 'idlista', 'lista', 'list_id'
+          ]) || null;
+          
+          // Solo agregar precio si es modo modificar
+          if (modoExcel.value === 'modificar') {
+            precio = buscarValorColumna(rowNormalizado, [
+              'precio', 'precio_especial', 'precioespecial', 'precio_final', 
+              'preciofinal', 'precio_lista', 'preciolista', 'price'
+            ]);
+          }
+          
+          // Solo mostrar logs para las primeras 5 filas
+          if (index < 5) {
+            console.log(`Fila ${index + 2} - nrocta encontrado:`, nrocta, ', producto_id encontrado:', producto, ', lista_id encontrado:', lista_id || 'null');
+            if (modoExcel.value === 'modificar') {
+              console.log(`Fila ${index + 2} - precio encontrado:`, precio);
+            }
+          }
+        }
         
         const obj = {
           nrocta: nrocta,
           producto_id: producto,
+          lista_id: lista_id,
         };
         
-        // Solo agregar precio si es modo modificar
         if (modoExcel.value === 'modificar') {
-          const precio = row['precio'] || row['Precio'] || row['PRECIO'] || row['precio_especial'] || row['PrecioEspecial'] || row['Precio Final'] || row['PrecioFinal'] || row['precio_final'];
           obj.precio = precio;
         }
         
         return obj;
       });
 
-      console.log('Total de filas leídas del Excel:', jsonData.length);
+      console.log('Total de filas leídas del Excel:', jsonDataFinal.length);
       console.log('Total de registros convertidos (sin filtrar):', datosConvertidos.length);
       console.log('Ejemplo de registro convertido:', datosConvertidos[0]);
       console.log('Último registro convertido:', datosConvertidos[datosConvertidos.length - 1]);
@@ -1044,34 +1184,52 @@ const validarDatosExcel = (datos) => {
   datos.forEach((row, index) => {
     const linea = index + 2; // +2 porque Excel empieza en 1 y hay header
     
-    console.log(`Validando línea ${linea}:`, row);
+    // Solo mostrar logs para las primeras 5 y últimas 2 líneas
+    const mostrarLog = index < 5 || index >= datos.length - 2;
+    
+    if (mostrarLog) {
+      console.log(`Validando línea ${linea}:`, row);
+    }
     
     const nrocta = row.nrocta;
     const producto_id = row.producto_id;
     
-    console.log(`Línea ${linea} - nrocta:`, nrocta, ', producto_id:', producto_id);
-    
-    // Validar campos obligatorios
-    if (!nrocta && nrocta !== 0) {
-      errores.push(`Línea ${linea}: Falta 'nrocta' en columna A`);
-      return;
+    if (mostrarLog) {
+      console.log(`Línea ${linea} - nrocta:`, nrocta, ', producto_id:', producto_id);
     }
-
-    if (!producto_id && producto_id !== 0) {
-      errores.push(`Línea ${linea}: Falta 'producto_id' en columna B`);
-      return;
+    
+    // Validar campos obligatorios según el modo
+    if (modoExcel.value === 'modificar') {
+      // En modo modificar, tanto nrocta como producto_id son obligatorios
+      if (!nrocta && nrocta !== 0) {
+        errores.push(`Línea ${linea}: Falta 'nrocta' en columna A`);
+        return;
+      }
+      if (!producto_id && producto_id !== 0) {
+        errores.push(`Línea ${linea}: Falta 'producto_id' en columna B`);
+        return;
+      }
+    } else {
+      // En modo eliminar, se requiere al menos uno de los dos
+      if ((!nrocta && nrocta !== 0) && (!producto_id && producto_id !== 0)) {
+        errores.push(`Línea ${linea}: Debe proporcionar al menos 'nrocta' (columna A) o 'producto_id' (columna B)`);
+        return;
+      }
     }
 
     const registro = {
-      nrocta: String(nrocta).trim(),
-      producto_id: String(producto_id).trim()
+      nrocta: nrocta ? parseInt(nrocta) : null,
+      producto_id: producto_id ? String(producto_id).trim() : null,
+      lista_id: row.lista_id || null // Incluir lista_id (null si no existe)
     };
 
     // Si es modo modificar, necesitamos el precio
     if (modoExcel.value === 'modificar') {
       const precio = row.precio;
       
-      console.log(`Línea ${linea} - precio:`, precio, `tipo:`, typeof precio);
+      if (mostrarLog) {
+        console.log(`Línea ${linea} - precio:`, precio, `tipo:`, typeof precio);
+      }
       
       if (!precio && precio !== 0) {
         errores.push(`Línea ${linea}: Falta 'precio' en columna de precio`);
@@ -1081,7 +1239,9 @@ const validarDatosExcel = (datos) => {
       // Normalizar precio
       const precioNormalizado = normalizarPrecio(precio);
       
-      console.log(`Línea ${linea} - precio normalizado:`, precioNormalizado);
+      if (mostrarLog) {
+        console.log(`Línea ${linea} - precio normalizado:`, precioNormalizado);
+      }
       
       if (precioNormalizado === null || isNaN(precioNormalizado)) {
         errores.push(`Línea ${linea}: Precio inválido '${precio}' - debe ser un número válido`);
@@ -1096,7 +1256,9 @@ const validarDatosExcel = (datos) => {
       registro.precio_especial = precioNormalizado;
     }
 
-    console.log(`Línea ${linea} - Registro válido:`, registro);
+    if (mostrarLog) {
+      console.log(`Línea ${linea} - Registro válido:`, registro);
+    }
     datosValidos.push(registro);
   });
 
@@ -1110,7 +1272,27 @@ const validarDatosExcel = (datos) => {
     
     if (datosValidos.length === 0) {
       // No hay datos válidos, mostrar error completo
-      errorExcel.value = `Se encontraron ${errores.length} errores en el archivo:\n\n` + mensajeErrores + masErrores + '\n\nVerifique que:\n- La columna C contenga solo valores numéricos\n- No haya columnas adicionales mezcladas\n- El formato del Excel sea correcto';
+      let mensajeAyuda = '\n\nVerifique que el archivo Excel tenga:\n';
+      
+      if (modoExcel.value === 'modificar') {
+        mensajeAyuda += '- Columna A: nrocta (número de cuenta) - OBLIGATORIO\n' +
+                       '- Columna B: producto_id - OBLIGATORIO\n' +
+                       '- Columna C o D: precio - OBLIGATORIO\n';
+      } else {
+        mensajeAyuda += 'OPCIÓN 1 - Eliminar todos los productos de ciertos clientes:\n' +
+                       '  - Columna A: nrocta (solo una columna)\n\n' +
+                       'OPCIÓN 2 - Eliminar productos específicos de clientes específicos:\n' +
+                       '  - Columna A: nrocta\n' +
+                       '  - Columna B: producto_id\n\n' +
+                       'OPCIÓN 3 - Eliminar un producto para TODOS los clientes:\n' +
+                       '  - Columna A: (vacía)\n' +
+                       '  - Columna B: producto_id\n';
+      }
+      
+      mensajeAyuda += '\nO bien que tenga headers válidos (nrocta, producto_id, etc.)';
+      
+      errorExcel.value = `Se encontraron ${errores.length} errores en el archivo:\n\n` + 
+        mensajeErrores + masErrores + mensajeAyuda;
     } else {
       // Hay algunos válidos, mostrar advertencia
       console.warn(`Se encontraron ${errores.length} errores pero ${datosValidos.length} registros válidos`);
@@ -1192,7 +1374,24 @@ const aplicarOperacionExcel = async () => {
   
   // Modo ELIMINAR
   if (modoExcel.value === 'eliminar') {
-    const mensaje = `¿Está seguro que desea eliminar ${cantidad} registros de clientes con descuentos? Esta acción no se puede deshacer.`;
+    // Detectar los diferentes tipos de eliminación
+    const registrosClientesSinProducto = datosExcelProcesados.value.filter(item => item.nrocta && !item.producto_id).length;
+    const registrosProductosSinCliente = datosExcelProcesados.value.filter(item => !item.nrocta && item.producto_id).length;
+    const registrosEspecificos = datosExcelProcesados.value.filter(item => item.nrocta && item.producto_id).length;
+    
+    let mensaje = `¿Está seguro que desea eliminar descuentos?\n\n`;
+    
+    if (registrosClientesSinProducto > 0) {
+      mensaje += `- ${registrosClientesSinProducto} clientes: se eliminarán TODOS sus productos\n`;
+    }
+    if (registrosProductosSinCliente > 0) {
+      mensaje += `- ${registrosProductosSinCliente} productos: se eliminarán de TODOS los clientes\n`;
+    }
+    if (registrosEspecificos > 0) {
+      mensaje += `- ${registrosEspecificos} combinaciones cliente-producto específicas\n`;
+    }
+    
+    mensaje += `\nTotal: ${cantidad} operaciones de eliminación\nEsta acción no se puede deshacer.`;
 
     if (!confirm(mensaje)) return;
 
@@ -1201,7 +1400,16 @@ const aplicarOperacionExcel = async () => {
     errorExcel.value = null;
 
     try {
-      await clientesPreciosService.deletePreciosEspecialesCliente(datosExcelProcesados.value);
+      // Preparar datos para enviar al backend (agregar lista_id)
+      const datosParaEliminar = datosExcelProcesados.value.map(item => ({
+        nrocta: item.nrocta ? parseInt(item.nrocta) : null, // Puede ser null para eliminar de todos los clientes
+        producto_id: item.producto_id ? String(item.producto_id) : null, // Puede ser null para eliminar todos los productos del cliente
+        lista_id: item.lista_id || null // Incluir lista_id, null si no existe
+      }));
+      
+      console.log('Enviando datos para eliminar al backend:', datosParaEliminar);
+      
+      await clientesPreciosService.deletePreciosEspecialesCliente(datosParaEliminar);
       alert(`✓ ${cantidad} registros eliminados correctamente`);
 
       // Cerrar modal y recargar datos
@@ -1230,9 +1438,10 @@ const aplicarOperacionExcel = async () => {
   try {
     // Preparar datos para enviar al backend
     const preciosParaActualizar = datosExcelProcesados.value.map(item => ({
-      nrocta: parseInt(item.nrocta),
-      producto_id: item.producto_id,
-      precio_especial: item.precio_especial
+      nrocta: item.nrocta ? parseInt(item.nrocta) : null,
+      producto_id: item.producto_id ? String(item.producto_id) : null,
+      precio_especial: item.precio_especial,
+      lista_id: item.lista_id || null // Incluir lista_id, null si no existe
     }));
 
     console.log('Enviando precios al backend:', preciosParaActualizar);
@@ -1339,7 +1548,7 @@ const eliminarClienteIndividual = async (nrocta, producto_id) => {
   try {
     // Crear array con un solo registro
     const registros = [{
-      nrocta: String(nrocta),
+      nrocta: parseInt(nrocta),
       producto_id: String(producto_id)
     }];
 
