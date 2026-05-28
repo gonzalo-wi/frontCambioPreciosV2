@@ -6,7 +6,14 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      // Proxy para todas las peticiones API
+      // Proxy específico para Lavazza (debe ir antes que el genérico /api)
+      '/api-cafe': {
+        target: 'http://192.168.0.251:8083',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api-cafe/, '/api'),
+      },
+      // Proxy para todas las peticiones API (IVESS)
       '/api': {
         target: 'http://192.168.0.58',
         changeOrigin: true,

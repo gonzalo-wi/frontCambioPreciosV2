@@ -8,6 +8,7 @@ const isProduction = import.meta.env.PROD;
 // URL base para todos los servicios
 export const API_CONFIG = {
   BASE_URL: isProduction ? 'http://192.168.0.58/api' : '/api',
+  BASE_URL_CAFE: isProduction ? 'http://192.168.0.251:8083/api' : '/api-cafe',
   TIMEOUT: 300000, // 5 minutos para operaciones masivas
   HEADERS: {
     'Content-Type': 'application/json',
@@ -24,12 +25,21 @@ export const getEmpresaActual = () => {
 };
 
 /**
- * Obtiene el parámetro de ambiente para las peticiones API
+ * Obtiene el parámetro de ambiente para las peticiones API (IVESS)
  * @returns {string|null} - 'AGUAS-PROD' si es producción, null si es pruebas
  */
 export const getAmbienteParam = () => {
   const ambiente = localStorage.getItem('ambiente') || 'PRUEBAS';
   return ambiente === 'PRODUCCION' ? 'AGUAS-PROD' : null;
+};
+
+/**
+ * Obtiene el parámetro de ambiente para las peticiones API de Lavazza
+ * @returns {string|null} - 'PROD' si es producción, null si es pruebas
+ */
+export const getAmbienteParamLavazza = () => {
+  const ambiente = localStorage.getItem('ambiente') || 'PRUEBAS';
+  return ambiente === 'PRODUCCION' ? 'PROD' : null;
 };
 
 export const ENDPOINTS = {
@@ -45,6 +55,14 @@ export const ENDPOINTS = {
     INSERTAR_NUEVA_LISTA:              '/cambio-precios/insertar-nueva-lista-precio',
     GET_PRODUCTOS:                     '/cambio-precios/get-productos',
     INSERTAR_LISTA_PRECIOS_PRODUCTOS:  '/cambio-precios/insertar-lista-precios-productos'
+  },
+  CAMBIO_PRECIOS_CAFE: {
+    PRODUCTOS:                '/cambio-precios-cafe/productos',
+    LISTAS_CON_PRODUCTOS:     '/cambio-precios-cafe/listas-con-productos',
+    SET_PRECIO_LISTA_PRODUCTO: '/cambio-precios-cafe/set-precio-lista-producto',
+    SET_PRECIO_ESPECIAL_CLIENTE: '/cambio-precios-cafe/set-precio-especial-cliente',
+    CLIENTES_DESCUENTO:       '/cambio-precios-cafe/clientes-descuento',
+    PRECIO_CLIENTE_PRODUCTO:  '/cambio-precios-cafe/precio-cliente-producto'
   }
 };
 

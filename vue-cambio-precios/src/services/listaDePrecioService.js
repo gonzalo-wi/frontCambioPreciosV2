@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { API_CONFIG, getAmbienteParam } from '../config/api.js';
+import { API_CONFIG, getAmbienteParam, getEmpresaActual } from '../config/api.js';
+import { lavazzaService } from './lavazzaService.js';
 
 const apiBackend = axios.create({
     baseURL : API_CONFIG.BASE_URL + '/',
@@ -30,6 +31,7 @@ export const listaDePrecioService = {
      * @returns {Promise<Array>}
      */
  async getListasDePrecios() {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.getListasDePrecios();
     try {
       const response = await apiBackend.get('cambio-precios/get-listas');
       return response.data;
@@ -160,6 +162,7 @@ export const listaDePrecioService = {
    * @returns {Promise<Array>} Lista de productos
    */
   async getProductos() {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.getProductos();
     try {
       const response = await apiBackend.get('cambio-precios/get-productos');
       return response.data;
@@ -179,6 +182,7 @@ export const listaDePrecioService = {
    * @returns {Promise<Object>} Respuesta del servidor
    */
   async insertarListaPreciosProductos(data) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.insertarListaPreciosProductos(data);
     try {
       const ambiente = getAmbienteParam();
       const payload = { data };

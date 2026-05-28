@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG, ENDPOINTS, getEmpresaActual, getAmbienteParam } from '../config/api.js';
+import { lavazzaService } from './lavazzaService.js';
 
 // Configuración base de axios
 const api = axios.create({
@@ -56,6 +57,7 @@ export const clientesPreciosService = {
    * @returns {Promise} Respuesta de la API con datos paginados
    */
   async getClientesConDescuento(params = {}) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.getClientesConDescuento(params);
     try {
       const queryParams = new URLSearchParams();
       
@@ -197,6 +199,7 @@ export const clientesPreciosService = {
    * @returns {Promise} Respuesta de la API
    */
   async setPreciosEspecialesCliente(precios) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.setPreciosEspecialesCliente(precios);
     try {
       const response = await api.put(ENDPOINTS.CAMBIO_PRECIOS.PRECIOS_ESPECIALES_CLIENTE, {
         data: precios
@@ -222,6 +225,7 @@ export const clientesPreciosService = {
    * @returns {Promise} Respuesta de la API
    */
   async deletePreciosEspecialesCliente(registros) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.deletePreciosEspecialesCliente(registros);
     try {
       const response = await api.delete(ENDPOINTS.CAMBIO_PRECIOS.DELETE_PRECIOS_ESPECIALES_CLIENTE, {
         data: {
@@ -249,6 +253,7 @@ export const clientesPreciosService = {
    * @returns {Promise} Respuesta con precios actuales
    */
   async getPreciosActualesClientes(registros) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.getPreciosActualesClientes(registros);
     try {
       const response = await api.post(ENDPOINTS.CAMBIO_PRECIOS.OBTENER_PRECIOS_ACTUALES, {
         data: registros
@@ -273,6 +278,7 @@ export const clientesPreciosService = {
    * @returns {Promise} Respuesta con precios, descuentos y listas
    */
   async getClientesConDescuentosMasivos(registros) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.getClientesConDescuentosMasivos(registros);
     try {
       // Intentar primero con POST (lo esperado para enviar datos)
       const response = await api.request({

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG, ENDPOINTS, getEmpresaActual, getAmbienteParam } from '../config/api.js';
+import { lavazzaService } from './lavazzaService.js';
 
 // Configuración de axios para archivos
 const apiFile = axios.create({
@@ -117,6 +118,10 @@ export const cambiarListaService = {
    * @returns {Promise<{success:boolean, data?:any, error?:string}>}
    */
   async generarCambioPreciosMasivo(precios) {
+    if (getEmpresaActual() === 'LAVAZZA') {
+      const result = await lavazzaService.setPreciosProductos(precios);
+      return result;
+    }
     try {
       if (!Array.isArray(precios) || precios.length === 0) {
         throw new Error('No hay precios para enviar');
@@ -453,6 +458,7 @@ export const cambiarListaService = {
    * @returns {Promise<Object>} Resultado de la operación
    */
   async setPreciosProductos(productos) {
+    if (getEmpresaActual() === 'LAVAZZA') return lavazzaService.setPreciosProductos(productos);
     try {
       console.log('Enviando precios de productos:', productos);
       
